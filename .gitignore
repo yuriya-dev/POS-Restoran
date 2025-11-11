@@ -1,0 +1,80 @@
+# ======================================
+# Global Node.js Ignore
+# ======================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+
+# ======================================
+# Environment Files
+# ======================================
+.env
+.env.*.local
+
+# ======================================
+# Build & Dist Outputs
+# ======================================
+dist/
+build/
+.cache/
+.out/
+.vite/
+
+# ======================================
+# System Files
+# ======================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ======================================
+# Logs
+# ======================================
+logs/
+*.log
+*.tmp
+
+# ======================================
+# OS Specific
+# ======================================
+# macOS
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+ehthumbs.db
+Desktop.ini
+
+# ======================================
+# Monorepo Specific
+# ======================================
+# Backend (Express)
+server/node_modules/
+server/.env
+server/dist/
+server/logs/
+
+# Frontend Admin (React + Vite)
+client_admin/node_modules/
+client_admin/dist/
+client_admin/.env
+
+# Frontend Kasir (React + Vite)
+client_kasir/node_modules/
+client_kasir/dist/
+client_kasir/.env
+
+# ======================================
+# Misc
+# ======================================
+*.local
+*.bak
+*.old
+*.orig

@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* Using Tailwind via CDN (see index.html).
+	 Keep global styles here if needed. */
+
+html, body {
+	margin: 0;
+	font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}
