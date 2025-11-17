@@ -1,9 +1,10 @@
 @import "tailwindcss";
 
-/* Using Tailwind via CDN (see index.html).
-	 Keep global styles here if needed. */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
 
-html, body {
-	margin: 0;
-	font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1; /* Gray-300 */
+  border-radius: 4px;
 }
