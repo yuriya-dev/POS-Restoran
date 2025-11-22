@@ -300,7 +300,7 @@ const Employees = () => {
                     {/* Filter Role */}
                     <div className="relative w-48">
                         <select
-                            className="block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 bg-white text-sm"
+                            className="appearance-none block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 bg-white text-sm"
                             value={filterRole}
                             onChange={(e) => setFilterRole(e.target.value)}
                         >

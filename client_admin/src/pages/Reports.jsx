@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
     BarChart3, DollarSign, ShoppingCart, TrendingUp, Filter, Download, Award, ListOrdered, ChevronDown, 
-    ArrowUp, ArrowDown 
+    ArrowUp, ArrowDown, Eye 
 } from 'lucide-react';
 import { subDays, startOfMonth, isWithinInterval, format, startOfDay, endOfDay } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -11,8 +11,12 @@ import Button from '../components/common/Button';
 import Table from '../components/common/Table';
 import SalesChart from '../components/reports/SalesChart'; 
 import TopSellingItems from '../components/reports/TopSellingItems'; 
+import OrderDetailModal from '../components/reports/OrderDetailModal';
 import { useData } from '../context/DataContext';
 import { formatCurrency } from '../utils/helpers';
+
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // Pilihan Filter Periode
 const PERIOD_OPTIONS = [
@@ -64,9 +68,14 @@ const Reports = () => {
     const [filterStatus, setFilterStatus] = useState('paid'); 
     const [filterPaymentMethod, setFilterPaymentMethod] = useState('all'); 
 
-    // ✅ STATE BARU UNTUK SORTIR
+    // STATE UNTUK SORTIR
     const [sortColumn, setSortColumn] = useState('createdAt'); // Default sorting
     const [sortDirection, setSortDirection] = useState('desc'); // Default descending (terbaru dulu)
+
+    // STATE UNTUK DETAIL
+    const [selectedOrder, setSelectedOrder] = useState(null);
+    const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+
 
     // Logika Pengurutan
     const handleSort = (column) => {
@@ -111,7 +120,7 @@ const Reports = () => {
             return dateMatch && statusMatch && paymentMatch;
         });
 
-        // ✅ Logika Sortir
+        // Logika Sortir
         result.sort((a, b) => {
             let valA = a[sortColumn];
             let valB = b[sortColumn];
@@ -146,16 +155,43 @@ const Reports = () => {
 
     // Fungsi Export Sederhana (tetap sama)
     const handleExport = () => {
-        if(filteredOrders.length === 0) return alert("Tidak ada data untuk diexport.");
-        const dataStr = JSON.stringify(filteredOrders, null, 2);
-        const blob = new Blob([dataStr], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `laporan_penjualan_${format(new Date(), 'yyyy-MM-dd')}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        if (filteredOrders.length === 0) return alert("Tidak ada data untuk diexport.");
+
+        const doc = new jsPDF();
+        
+        // Judul PDF
+        doc.setFontSize(16);
+        doc.text("Laporan Penjualan", 14, 15);
+        
+        doc.setFontSize(10);
+        doc.text(`Periode: ${format(dateRange.start, 'dd MMM yyyy', { locale: id })} - ${format(dateRange.end, 'dd MMM yyyy', { locale: id })}`, 14, 22);
+        doc.text(`Total Transaksi: ${filteredOrders.length}`, 14, 28);
+        doc.text(`Total Omzet: ${formatCurrency(metrics.totalRevenue)}`, 14, 34);
+
+        // Buat tabel data
+        const tableColumn = ["No.", "Tanggal", "Status", "Total", "Pembayaran"];
+        const tableRows = [];
+
+        filteredOrders.forEach((order, index) => {
+            tableRows.push([
+                index + 1,
+                format(new Date(order.createdAt), "dd/MM/yyyy HH:mm", { locale: id }),
+                order.status,
+                formatCurrency(order.totalAmount),
+                order.paymentMethod || "-",
+            ]);
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 40,
+            styles: { fontSize: 9 },
+            theme: "grid"
+        });
+
+        // Simpan file
+        doc.save(`laporan_penjualan_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     };
 
     // Format String Tanggal untuk API Top Selling (tetap sama)
@@ -163,7 +199,7 @@ const Reports = () => {
     const endDateStr = dateRange.end ? dateRange.end.toISOString() : null;
     const taxRate = settings?.taxRate || 0.1;
 
-    // ✅ Komponen Header Kolom Sortable
+    // Komponen Header Kolom Sortable
     const SortableHeader = ({ header, accessor }) => {
         const isCurrentSort = sortColumn === accessor;
         const Icon = isCurrentSort 
@@ -184,7 +220,7 @@ const Reports = () => {
         );
     };
 
-    // ✅ Kolom Tabel Transaksi (Menggunakan SortableHeader)
+    // Kolom Tabel Transaksi (Menggunakan SortableHeader)
     const transactionColumns = [
         { 
             header: <SortableHeader header='No. Order' accessor='dailyNumber' />,
@@ -233,6 +269,21 @@ const Reports = () => {
                 </span>
             )
         },
+        {
+            header: '',
+            accessor: 'actions',
+            render: (_, item) => (
+                <button
+                    onClick={() => {
+                        setSelectedOrder(item);
+                        setIsOrderModalOpen(true);
+                    }}
+                    className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 text-blue-600 transition"
+                >
+                    <Eye className="w-4 h-4" />
+                </button>
+            )
+        }
     ];
     
     const TabButton = ({ name, icon: Icon, isActive, onClick }) => (
@@ -247,6 +298,7 @@ const Reports = () => {
     );
 
     return (
+        <>
         <div className="p-4 sm:p-6 lg:p-8 space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center">
@@ -374,7 +426,8 @@ const Reports = () => {
                                 
                                 <Table 
                                     columns={transactionColumns} 
-                                    data={filteredOrders} 
+                                    data={filteredOrders}
+                                    onRowClick={(row) => setSelectedOrder(row)} 
                                     emptyMessage="Tidak ada data transaksi untuk periode ini." 
                                 />
                             </div>
@@ -391,6 +444,15 @@ const Reports = () => {
                 </div>
             </Card>
         </div>
+
+        {isOrderModalOpen && (
+        <OrderDetailModal
+            order={selectedOrder}
+            onClose={() => setSelectedOrder(null)}
+        />
+        )}
+        </>
+
     );
 };
 

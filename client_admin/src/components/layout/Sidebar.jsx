@@ -14,11 +14,10 @@ const navItems = [
   { name: 'Pengaturan', icon: Settings, path: '/settings' },
 ];
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, setIsOpen }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isOpen, setIsOpen] = useState(false); // Mobile state
 
   const handleLogout = () => {
     logout();
@@ -32,11 +31,9 @@ const Sidebar = () => {
       <Link
         to={item.path}
         className={`flex items-center p-3 rounded-lg text-sm font-medium transition duration-150 ${
-          isActive
-            ? 'bg-blue-600 text-white shadow-md'
-            : 'text-gray-600 hover:bg-gray-200 hover:text-blue-600'
+          isActive ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-200 hover:text-blue-600'
         }`}
-        onClick={() => setIsOpen(false)} // Close on mobile
+        onClick={() => setIsOpen(false)}
       >
         <Icon className={`w-5 h-5 mr-3 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-blue-600'}`} />
         {item.name}
@@ -46,29 +43,36 @@ const Sidebar = () => {
 
   return (
     <>
-      {/* Mobile Toggle Button */}
-      <button 
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-full shadow-lg"
+      {/* 🔹 Overlay Mobile (Pindah ke Luar Aside) */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black opacity-40 z-20 lg:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* 🔹 Toggle Button (Z-index lebih rendah) */}
+      <button
+        className="lg:hidden fixed top-4 left-4 z-30 p-2 bg-blue-600 text-white rounded-full shadow-lg"
         onClick={() => setIsOpen(!isOpen)}
       >
         <Menu className="w-6 h-6" />
       </button>
 
-      {/* Sidebar - Desktop & Mobile overlay */}
+      {/* 🔹 Sidebar */}
       <aside 
-        className={`fixed inset-y-0 left-0 transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
-          lg:static lg:flex lg:flex-col w-64 bg-white border-r border-gray-200 p-4 transition-transform duration-300 ease-in-out z-40
+        className={`fixed inset-y-0 left-0 transform ${isOpen ? 'translate-x-0 z-50' : '-translate-x-full z-0'} 
+          lg:translate-x-0 lg:z-0
+          lg:static lg:flex lg:flex-col w-64 bg-white border-r border-gray-200 p-4 transition-transform duration-300 ease-in-out
         `}
       >
-        {/* Overlay for mobile */}
-        {isOpen && <div className="fixed inset-0 bg-black opacity-50 z-30 lg:hidden" onClick={() => setIsOpen(false)}></div>}
 
-        <div className="flex-shrink-0 flex items-center mb-6 h-16">
+        <div className="shrink-0 flex items-center mb-6 h-16">
           <Utensils className="w-8 h-8 text-blue-600 mr-2" />
           <span className="text-xl font-bold text-gray-900">Admin POS</span>
         </div>
 
-        <nav className="flex-1 space-y-2 custom-scrollbar overflow-y-auto">
+        <nav className="flex-1 space-y-2 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => (
             <NavLink key={item.path} item={item} />
           ))}
@@ -86,7 +90,7 @@ const Sidebar = () => {
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="w-full flex items-center p-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition duration-150"
+            className="w-full flex items-center p-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition"
           >
             <LogOut className="w-5 h-5 mr-3 text-red-500" />
             Keluar
@@ -94,7 +98,7 @@ const Sidebar = () => {
         </div>
       </aside>
 
-      {/* Logout Confirmation Modal */}
+      {/* Modal Logout */}
       <ConfirmModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
