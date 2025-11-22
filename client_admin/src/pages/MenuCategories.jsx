@@ -1,154 +1,155 @@
-// pages/MenuCategories.jsx (Kode Anda, dengan struktur komponen terpisah)
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Tag, Edit, Trash2, ListOrdered, UtensilsCrossed, Coffee, Cake, ChevronDown, AlertTriangle } from 'lucide-react';
 import Card from '../components/common/Card';
 import Table from '../components/common/Table';
 import Button from '../components/common/Button';
 import ConfirmModal from '../components/common/ConfirmModal';
-import Modal from '../components/common/Modal'; // Asumsi komponen Modal dasar tersedia
+import Modal from '../components/common/Modal'; 
 import { useData } from '../context/DataContext';
 
-// Mapping ikon Lucide ke nama string
+// Mapping ikon Lucide
 const iconOptions = {
-    'Makanan Utama': UtensilsCrossed,
-    'Minuman': Coffee,
-    'Dessert': Cake,
-    'Lain-lain': Tag
+    'UtensilsCrossed': { label: 'Makanan Utama', icon: UtensilsCrossed },
+    'Coffee': { label: 'Minuman', icon: Coffee },
+    'Cake': { label: 'Dessert', icon: Cake },
+    'Tag': { label: 'Lain-lain', icon: Tag }
 };
 
 // --- Komponen Modal Form Kategori ---
 const CategoryForm = ({ isOpen, onClose, category, onSave }) => {
     const { createCategory, updateCategory, categories } = useData();
+    const isEdit = !!category;
+
+    // State disesuaikan dengan DB (name, icon, sort_order)
     const [formData, setFormData] = useState({ 
-        nama_kategori: '', 
-        icon: 'Makanan Utama', 
+        name: '', 
+        icon: 'UtensilsCrossed', 
         sort_order: 0 
     });
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const isEdit = !!category;
 
     useEffect(() => {
-        if (category) {
-            setFormData({
-                nama_kategori: category.nama_kategori,
-                icon: category.icon,
-                sort_order: category.sort_order,
-            });
-        } else {
-            // Set default order: last order + 1
-            const maxOrder = categories.reduce((max, cat) => Math.max(max, cat.sort_order), 0);
-            setFormData({ nama_kategori: '', icon: 'Makanan Utama', sort_order: maxOrder + 1 });
+        if (isOpen) {
+            if (category) {
+                setFormData({
+                    name: category.name,
+                    icon: category.icon || 'UtensilsCrossed',
+                    sort_order: category.sort_order || 0,
+                });
+            } else {
+                // Auto-increment sort order
+                const maxOrder = categories.reduce((max, cat) => Math.max(max, cat.sort_order || 0), 0);
+                setFormData({ name: '', icon: 'UtensilsCrossed', sort_order: maxOrder + 1 });
+            }
+            setError('');
         }
-        setError('');
     }, [category, categories, isOpen]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ 
             ...prev, 
-            [name]: name === 'sort_order' ? parseInt(value) || 0 : value // Pastikan order adalah integer
+            [name]: name === 'sort_order' ? parseInt(value) || 0 : value 
         }));
-        if (error) setError('');
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        // Validation
-        if (!formData.nama_kategori.trim()) {
+        setError('');
+
+        if (!formData.name.trim()) {
             setError('Nama kategori tidak boleh kosong.');
             return;
         }
+
+        // Cek Duplikasi
         const isDuplicate = categories.some(cat => 
-            cat.nama_kategori.toLowerCase() === formData.nama_kategori.trim().toLowerCase() && 
-            (!isEdit || cat.kategori_id !== category.kategori_id)
+            cat.name.toLowerCase() === formData.name.trim().toLowerCase() && 
+            (!isEdit || cat.id !== category.id)
         );
         if (isDuplicate) {
-            setError('Nama kategori sudah ada. Mohon gunakan nama lain.');
+            setError('Nama kategori sudah ada.');
             return;
         }
 
         setIsSubmitting(true);
         try {
             if (isEdit) {
-                await updateCategory(category.kategori_id, formData);
+                await updateCategory(category.id, formData);
             } else {
                 await createCategory(formData);
             }
-            onSave();
+            onSave(); // Refresh data di parent
             onClose();
         } catch (err) {
-            setError('Gagal menyimpan kategori. Silakan coba lagi.');
+            setError('Gagal menyimpan kategori. Cek koneksi server.');
             console.error(err);
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const SelectedIcon = iconOptions[formData.icon];
+    // Resolve Component Icon yang dipilih
+    const SelectedIconConfig = iconOptions[formData.icon] || iconOptions['Tag'];
+    const SelectedIcon = SelectedIconConfig.icon;
 
     return (
         <Modal 
             isOpen={isOpen} 
             onClose={onClose} 
-            title={isEdit ? `Edit Kategori: ${category?.nama_kategori}` : 'Tambah Kategori Baru'}
+            title={isEdit ? `Edit Kategori` : 'Tambah Kategori'}
         >
             <form onSubmit={handleSubmit} className="space-y-4">
-                {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 text-sm rounded-md"><AlertTriangle className='w-4 h-4 mr-1 inline-block'/> {error}</div>}
+                {error && <div className="bg-red-50 border border-red-200 text-red-600 p-3 text-sm rounded-md flex items-center"><AlertTriangle className='w-4 h-4 mr-2'/> {error}</div>}
                 
                 {/* Input Nama Kategori */}
                 <div>
-                    <label htmlFor="nama_kategori" className="block text-sm font-medium text-gray-700">Nama Kategori</label>
+                    <label className="block text-sm font-medium text-gray-700">Nama Kategori</label>
                     <input
-                        id="nama_kategori"
-                        name="nama_kategori"
+                        name="name"
                         type="text"
-                        value={formData.nama_kategori}
+                        value={formData.name}
                         onChange={handleChange}
-                        className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Contoh: Makanan Utama"
+                        className="mt-1 block w-full border border-gray-300 rounded-lg p-2.5 focus:ring-blue-500"
+                        placeholder="Contoh: Makanan Berat"
                         required
                     />
                 </div>
 
                 {/* Icon Selector */}
                 <div>
-                    <label htmlFor="icon" className="block text-sm font-medium text-gray-700">Pilih Ikon</label>
+                    <label className="block text-sm font-medium text-gray-700">Pilih Ikon</label>
                     <div className="flex items-center space-x-3 mt-1">
                         <div className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg border border-gray-300">
-                            {SelectedIcon && <SelectedIcon className="w-6 h-6 text-blue-600" />}
+                            <SelectedIcon className="w-6 h-6 text-blue-600" />
                         </div>
-                        <div className="relative flex-grow">
+                        <div className="relative grow">
                             <select
-                                id="icon"
                                 name="icon"
                                 value={formData.icon}
                                 onChange={handleChange}
-                                className="appearance-none block w-full pl-3 pr-10 py-3 border border-gray-300 rounded-lg bg-white focus:ring-blue-500 focus:border-blue-500"
+                                className="block w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg bg-white focus:ring-blue-500"
                             >
-                                {Object.keys(iconOptions).map(name => (
-                                    <option key={name} value={name}>{name}</option>
+                                {Object.entries(iconOptions).map(([key, val]) => (
+                                    <option key={key} value={key}>{val.label}</option>
                                 ))}
                             </select>
-                            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                            <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
                         </div>
                     </div>
                 </div>
                 
                 {/* Input Urutan */}
                 <div>
-                    <label htmlFor="sort_order" className="block text-sm font-medium text-gray-700">Urutan Tampil (Sort Order)</label>
+                    <label className="block text-sm font-medium text-gray-700">Urutan Tampil</label>
                     <input
-                        id="sort_order"
                         name="sort_order"
                         type="number"
                         min="0"
                         value={formData.sort_order}
                         onChange={handleChange}
-                        className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Contoh: 1"
+                        className="mt-1 block w-full border border-gray-300 rounded-lg p-2.5 focus:ring-blue-500"
                         required
                     />
                 </div>
@@ -156,7 +157,7 @@ const CategoryForm = ({ isOpen, onClose, category, onSave }) => {
                 <div className="pt-4 flex justify-end space-x-3">
                     <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>Batal</Button>
                     <Button type="submit" variant="primary" disabled={isSubmitting}>
-                        {isSubmitting ? 'Menyimpan...' : (isEdit ? 'Simpan Perubahan' : 'Tambah Kategori')}
+                        {isSubmitting ? 'Menyimpan...' : (isEdit ? 'Simpan' : 'Tambah')}
                     </Button>
                 </div>
             </form>
@@ -172,10 +173,13 @@ const MenuCategories = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState(null);
 
-    // Hitung item count menggunakan useMemo untuk performa
+    // Hitung jumlah item per kategori
     const categoryItemCounts = useMemo(() => {
+        if (!Array.isArray(menuItems)) return {};
         return menuItems.reduce((acc, item) => {
-            acc[item.kategori_id] = (acc[item.kategori_id] || 0) + 1;
+            // Item.category menyimpan ID Kategori
+            const catId = item.category; 
+            acc[catId] = (acc[catId] || 0) + 1;
             return acc;
         }, {});
     }, [menuItems]);
@@ -195,45 +199,46 @@ const MenuCategories = () => {
     };
 
     const confirmDelete = async () => {
-        const itemCount = getCategoryItemCount(selectedCategory.kategori_id);
+        const itemCount = getCategoryItemCount(selectedCategory.id);
         
-        // Pencegahan Penghapusan
         if (itemCount > 0) {
-            // Mengganti alert dengan notifikasi yang lebih baik (jika ada) atau tetap menggunakan alert.
-            // Di sini, kita akan membiarkan modal terbuka dengan pesan error yang diperbarui.
-            // Namun, karena ini adalah ConfirmModal, kita akan menggunakan alert sementara.
-            alert(`GAGAL: Kategori "${selectedCategory.nama_kategori}" memiliki ${itemCount} item menu terkait. Hapus item menu terlebih dahulu.`);
+            alert(`GAGAL: Kategori "${selectedCategory.name}" masih memiliki ${itemCount} item menu. Hapus atau pindahkan item menu terlebih dahulu.`);
             setIsModalOpen(false);
             return;
         }
 
         try {
-            await deleteCategory(selectedCategory.kategori_id);
+            await deleteCategory(selectedCategory.id);
         } catch (error) {
             console.error("Gagal menghapus kategori:", error);
-            alert("Gagal menghapus kategori. Cek console untuk detail.");
+            alert("Gagal menghapus kategori.");
         } finally {
             setIsModalOpen(false);
             setSelectedCategory(null);
         }
     };
 
-    // Data yang akan ditampilkan di tabel, sudah di-sort
+    // Sort Kategori berdasarkan sort_order
     const sortedCategories = useMemo(() => {
-        return [...categories].sort((a, b) => a.sort_order - b.sort_order);
+        if (!Array.isArray(categories)) return [];
+        return [...categories].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     }, [categories]);
 
     const columns = [
-        { header: 'Icon', accessor: 'icon', render: (iconName) => {
-            const IconComponent = iconOptions[iconName] || Tag;
-            return <IconComponent className="w-5 h-5 text-blue-600" />;
-        }},
-        { header: 'Nama Kategori', accessor: 'nama_kategori' },
+        { 
+            header: 'Icon', 
+            accessor: 'icon', // DB: icon (string key)
+            render: (iconKey) => {
+                const IconComponent = (iconOptions[iconKey] || iconOptions['Tag']).icon;
+                return <IconComponent className="w-5 h-5 text-blue-600" />;
+            }
+        },
+        { header: 'Nama Kategori', accessor: 'name' }, // DB: name
         { 
             header: 'Urutan', 
-            accessor: 'sort_order',
+            accessor: 'sort_order', // DB: sort_order
             render: (order) => (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                     <ListOrdered className="w-3 h-3 mr-1" />
                     {order}
                 </span>
@@ -241,11 +246,11 @@ const MenuCategories = () => {
         },
         { 
             header: 'Jumlah Item', 
-            accessor: 'kategori_id', // Menggunakan ID untuk mendapatkan count
+            accessor: 'id', 
             render: (id) => {
                 const count = getCategoryItemCount(id);
                 return (
-                    <span className={`font-semibold ${count > 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                    <span className={`font-semibold ${count > 0 ? 'text-green-600' : 'text-gray-400'}`}>
                         {count} item
                     </span>
                 );
@@ -265,8 +270,8 @@ const MenuCategories = () => {
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center"><Tag className="w-6 h-6 mr-2 text-blue-600" /> Manajemen Kategori Menu</h1>
-            <p className="text-gray-500">Kelola dan atur urutan kategori menu restoran Anda.</p>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center"><Tag className="w-6 h-6 mr-2 text-blue-600" /> Manajemen Kategori</h1>
+            <p className="text-gray-500">Kelola pengelompokan menu restoran.</p>
 
             <Card className="p-4 sm:p-6">
                 <div className="flex justify-end mb-6">
@@ -275,28 +280,35 @@ const MenuCategories = () => {
                         onClick={() => { setIsFormOpen(true); setSelectedCategory(null); }} 
                         icon={<Plus className="w-5 h-5" />}
                     >
-                        Tambah Kategori Baru
+                        Tambah Kategori
                     </Button>
                 </div>
 
-                <Table columns={columns} data={sortedCategories} emptyMessage="Belum ada kategori menu yang ditambahkan." />
+                <Table 
+                    columns={columns} 
+                    data={sortedCategories} 
+                    emptyMessage="Belum ada kategori menu." 
+                />
             </Card>
 
-            {/* Modal Create/Edit */}
+            {/* Modal Form */}
             <CategoryForm
                 isOpen={isFormOpen}
                 onClose={() => setIsFormOpen(false)}
                 category={selectedCategory}
-                onSave={() => setSelectedCategory(null)}
+                onSave={() => {
+                    setSelectedCategory(null);
+                    // refreshData('categories'); // Optional jika create/update sudah handle refresh
+                }}
             />
 
-            {/* Confirmation Modal (Delete) */}
+            {/* Confirm Delete */}
             <ConfirmModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onConfirm={confirmDelete}
-                title="Hapus Kategori Menu"
-                message={`Apakah Anda yakin ingin menghapus kategori **${selectedCategory?.nama_kategori}**? Penghapusan akan GAGAL jika masih ada item menu terkait. (Item: **${getCategoryItemCount(selectedCategory?.kategori_id)}**)`}
+                title="Hapus Kategori"
+                message={`Hapus kategori **${selectedCategory?.name}**?`}
                 confirmText="Ya, Hapus"
                 confirmButtonClass="bg-red-500 hover:bg-red-600"
             />

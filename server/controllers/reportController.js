@@ -2,17 +2,21 @@ const supabase = require('../config/supabase');
 
 exports.getTopSellingItems = async (req, res) => {
   try {
-    // Ambil filter tanggal dari query params (opsional)
-    // format: ?startDate=2023-01-01&endDate=2023-12-31
     const { startDate, endDate } = req.query;
 
+    // Logic query Anda ...
     let query = supabase
       .from('orderitems')
-      .select('itemName, quantity, totalPrice, orders!inner(createdAt)'); 
-      // !inner berarti join wajib (hanya item yang punya order valid)
+      .select(`
+        itemName,
+        quantity,
+        totalPrice,
+        orders!inner (
+          createdAt
+        )
+      `);
 
     if (startDate && endDate) {
-      // Filter berdasarkan tanggal order induk
       query = query
         .gte('orders.createdAt', startDate)
         .lte('orders.createdAt', endDate);
@@ -22,42 +26,36 @@ exports.getTopSellingItems = async (req, res) => {
 
     if (error) throw error;
 
-    // --- PROSES AGREGASI DI SERVER (Node.js) ---
-    // Supabase JS Client belum support 'GROUP BY' native dengan mudah untuk select complex,
-    // jadi kita hitung manual di backend (ini masih cepat untuk ribuan data).
-    
+    // Logic Agregasi Anda ...
     const itemMap = {};
-    let grandTotalRevenue = 0;
+    let grandTotal = 0;
 
-    data.forEach(item => {
-      const name = item.itemName;
+    data.forEach(row => {
+      const name = row.itemName;
+      const qty = Number(row.quantity);
+      const total = Number(row.totalPrice);
+
       if (!itemMap[name]) {
-        itemMap[name] = {
-          name: name,
-          qty: 0,
-          revenue: 0
-        };
+        itemMap[name] = { name, totalQty: 0, totalRevenue: 0 };
       }
-      const qty = Number(item.quantity);
-      const price = Number(item.totalPrice); // totalPrice di table orderitems = qty * harga
-      
-      itemMap[name].qty += qty;
-      itemMap[name].revenue += price;
-      grandTotalRevenue += price;
+
+      itemMap[name].totalQty += qty;
+      itemMap[name].totalRevenue += total;
+      grandTotal += total;
     });
 
-    // Convert ke array, sort, dan hitung persentase
-    const sortedItems = Object.values(itemMap)
-      .sort((a, b) => b.qty - a.qty) // Sort dari qty terbanyak
-      .slice(0, 10) // Ambil Top 10
+    const result = Object.values(itemMap)
+      .sort((a, b) => b.totalQty - a.totalQty)
+      .slice(0, 10)
       .map(item => ({
         ...item,
-        percentage: grandTotalRevenue > 0 ? (item.revenue / grandTotalRevenue) * 100 : 0
+        percentage: grandTotal > 0 ? (item.totalRevenue / grandTotal) * 100 : 0
       }));
 
-    res.json(sortedItems);
+    res.json({ success: true, data: result });
 
   } catch (err) {
+    console.error("Report Error:", err); // Tambahkan log console agar mudah debug
     res.status(500).json({ error: err.message });
   }
 };

@@ -1,27 +1,47 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { getSettings, updateSettings as apiUpdateSettings } from '../api/db';
+import { api } from '../services/api';
 
 const SettingsContext = createContext();
 
 export const SettingsProvider = ({ children }) => {
-    const [settings, setSettings] = useState(getSettings());
-    const [loading, setLoading] = useState(false);
+    // State awal null atau default structure agar tidak error saat render pertama
+    const [settings, setSettings] = useState({
+        restaurantName: '',
+        receiptInfo: '',
+        taxRate: 0.1,
+        configId: 'default'
+    });
+    const [loading, setLoading] = useState(true);
 
-    // useEffect(() => {
-    //     // Initial load is done synchronously in useState from db.js
-    //     // but this is useful if we need to re-fetch asynchronously later
-    //     setSettings(getSettings()); 
-    // }, []);
+    // 1. Fetch Settings dari Server saat aplikasi mulai
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const response = await api.getSettings();
+                // Pastikan data ada sebelum di-set
+                if (response.data) {
+                    setSettings(response.data);
+                }
+            } catch (error) {
+                console.error("Gagal memuat pengaturan:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
 
+        fetchSettings();
+    }, []);
+
+    // 2. Fungsi Update ke Server
     const updateSettings = async (newSettings) => {
         setLoading(true);
         try {
-            // Simulasi delay API
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Kirim data update ke API
+            const response = await api.updateSettings(newSettings);
             
-            const updated = apiUpdateSettings(newSettings);
-            setSettings(updated);
-            return updated;
+            // Update state lokal dengan data terbaru dari server
+            setSettings(response.data);
+            return response.data;
         } catch (error) {
             console.error("Gagal memperbarui pengaturan:", error);
             throw error;

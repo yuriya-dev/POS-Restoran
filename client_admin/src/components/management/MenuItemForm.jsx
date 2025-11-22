@@ -1,102 +1,128 @@
-// components/management/MenuItemForm.jsx
-
 import React, { useState, useEffect } from 'react';
-import { Tag, Utensils, DollarSign, Image, X } from 'lucide-react';
+import { DollarSign, Image as ImageIcon, UploadCloud, Loader2 } from 'lucide-react';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
 import { useData } from '../../context/DataContext';
+import { uploadToCloudinary } from '../../services/cloudinary'; // Pastikan service ini ada
 
 const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
-    const { categories, menuItems, refreshData } = useData();
+    const { categories, createMenuItem, updateMenuItem } = useData();
     const isEdit = !!item;
 
+    // State Form sesuai Schema DB (CamelCase dari JSON Server)
     const [formData, setFormData] = useState({
-        nama_item: '',
-        harga: '',
-        kategori_id: categories[0]?.kategori_id || '', // Default ke kategori pertama
-        gambar_url: '',
-        is_active: true,
+        name: '',
+        price: '',
+        category: '', // Menyimpan ID Kategori
+        image_url: '',
+        isAvailable: true,
     });
+
+    const [imageFile, setImageFile] = useState(null); // Untuk handle file upload
+    const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Effect: Reset form saat modal dibuka/ditutup atau item berubah
     useEffect(() => {
-        if (categories.length > 0 && !formData.kategori_id) {
-             setFormData(prev => ({ ...prev, kategori_id: categories[0].kategori_id }));
+        if (isOpen) {
+            if (item) {
+                // Mode Edit
+                setFormData({
+                    name: item.name || '',
+                    price: item.price || '',
+                    category: item.category || (categories[0]?.id || ''),
+                    image_url: item.image_url || '',
+                    isAvailable: item.isAvailable ?? true,
+                });
+            } else {
+                // Mode Tambah Baru
+                setFormData({
+                    name: '',
+                    price: '',
+                    category: categories[0]?.id || '',
+                    image_url: '',
+                    isAvailable: true,
+                });
+            }
+            setImageFile(null);
+            setError('');
         }
-
-        if (item) {
-            setFormData({
-                nama_item: item.nama_item,
-                harga: item.harga,
-                kategori_id: item.kategori_id,
-                gambar_url: item.gambar_url,
-                is_active: item.is_active,
-            });
-        } else {
-            // Reset form saat membuka untuk pembuatan baru
-            setFormData({
-                nama_item: '',
-                harga: '',
-                kategori_id: categories[0]?.kategori_id || '',
-                gambar_url: 'https://via.placeholder.com/150/CCCCCC?text=Menu+Item',
-                is_active: true,
-            });
-        }
-        setError('');
     }, [item, isOpen, categories]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({ 
             ...prev, 
-            [name]: type === 'checkbox' ? checked : (name === 'harga' ? parseFloat(value) || '' : value) 
+            [name]: type === 'checkbox' ? checked : (name === 'price' ? parseFloat(value) || '' : value) 
         }));
-        if (error) setError('');
     };
 
-    const validateForm = () => {
-        if (!formData.nama_item.trim() || !formData.kategori_id) {
-            return 'Nama item dan Kategori wajib diisi.';
+    // Handle File Input Change
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) { // Limit 2MB
+                setError("Ukuran file maksimal 2MB");
+                return;
+            }
+            setImageFile(file);
+            // Preview lokal sementara
+            setFormData(prev => ({ ...prev, image_url: URL.createObjectURL(file) }));
         }
-        if (typeof formData.harga !== 'number' || formData.harga <= 0) {
-            return 'Harga harus berupa angka yang valid dan lebih dari nol.';
-        }
-        
-        // Cek keunikan nama
-        const isDuplicate = menuItems.some(i => 
-            i.nama_item.toLowerCase() === formData.nama_item.trim().toLowerCase() && 
-            (!isEdit || i.item_id !== item.item_id)
-        );
-        if (isDuplicate) return 'Nama item sudah ada. Mohon gunakan nama lain.';
-        
-        return null;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const validationError = validateForm();
-        if (validationError) {
-            setError(validationError);
+        setError('');
+        setIsSubmitting(true);
+
+        // 1. Validasi
+        if (!formData.name.trim() || !formData.price) {
+            setError('Nama dan Harga wajib diisi.');
+            setIsSubmitting(false);
             return;
         }
 
         try {
-            const dataToSave = { ...formData, nama_item: formData.nama_item.trim() };
+            let finalImageUrl = formData.image_url;
 
+            // 2. Upload Gambar ke Cloudinary (Jika ada file baru dipilih)
+            if (imageFile) {
+                setUploading(true);
+                try {
+                    finalImageUrl = await uploadToCloudinary(imageFile);
+                } catch (uploadErr) {
+                    setError('Gagal mengupload gambar. Cek koneksi internet.');
+                    setUploading(false);
+                    setIsSubmitting(false);
+                    return;
+                }
+                setUploading(false);
+            }
+
+            // 3. Siapkan Payload Data
+            const payload = {
+                ...formData,
+                image_url: finalImageUrl,
+                category: Number(formData.category) // Pastikan ID kategori number
+            };
+
+            // 4. Kirim ke API via Context
             if (isEdit) {
-                // Simulasi API Update
-                require('../../api/db').update('menu_items', item.item_id, dataToSave, 'item_id'); 
+                await updateMenuItem(item.itemId, payload);
             } else {
-                // Simulasi API Create
-                require('../../api/db').create('menu_items', dataToSave, 'item_id');
+                await createMenuItem(payload);
             }
             
-            refreshData('menuItems'); // Refresh data di DataContext
-            onSave();
+            onSave(); // Refresh data di parent
             onClose();
         } catch (err) {
-            setError('Gagal menyimpan item menu. Silakan coba lagi.');
             console.error(err);
+            setError('Gagal menyimpan data. Silakan coba lagi.');
+        } finally {
+            setIsSubmitting(false);
+            setUploading(false);
         }
     };
 
@@ -104,107 +130,125 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
         <Modal 
             isOpen={isOpen} 
             onClose={onClose} 
-            title={isEdit ? `Edit Item: ${item?.nama_item}` : 'Tambah Item Menu Baru'}
+            title={isEdit ? `Edit Menu` : 'Tambah Menu Baru'}
         >
             <form onSubmit={handleSubmit} className="space-y-5">
-                {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 text-sm rounded-md">{error}</div>}
+                {error && (
+                    <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-200">
+                        {error}
+                    </div>
+                )}
                 
-                {/* Gambar Preview */}
-                <div className="flex justify-center">
-                    <img 
-                        src={formData.gambar_url || 'https://via.placeholder.com/150/CCCCCC?text=Menu+Item'} 
-                        alt="Preview" 
-                        className="w-40 h-40 object-cover rounded-xl shadow-md border border-gray-200"
-                    />
+                {/* Preview & Upload Gambar */}
+                <div className="flex flex-col items-center space-y-3">
+                    <div className="relative w-32 h-32 rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-50 group">
+                        {formData.image_url ? (
+                            <img 
+                                src={formData.image_url} 
+                                alt="Preview" 
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                <ImageIcon className="w-8 h-8" />
+                            </div>
+                        )}
+                        
+                        {/* Overlay Upload */}
+                        <label htmlFor="imageUpload" className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 flex items-center justify-center cursor-pointer transition-all">
+                            <UploadCloud className="w-8 h-8 text-white opacity-0 group-hover:opacity-100" />
+                            <input 
+                                type="file" 
+                                id="imageUpload" 
+                                accept="image/*" 
+                                className="hidden" 
+                                onChange={handleFileChange} 
+                            />
+                        </label>
+                    </div>
+                    <span className="text-xs text-gray-500">Klik gambar untuk mengubah (Max 2MB)</span>
                 </div>
 
-                {/* Input Nama Item */}
-                <div className="relative">
-                    <label htmlFor="nama_item" className="block text-sm font-medium text-gray-700">Nama Item</label>
+                {/* Nama Item */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nama Menu</label>
                     <input
-                        id="nama_item"
-                        name="nama_item"
+                        name="name"
                         type="text"
-                        value={formData.nama_item}
+                        value={formData.name}
                         onChange={handleChange}
-                        className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Contoh: Nasi Goreng Spesial"
+                        className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                        placeholder="Contoh: Ayam Bakar Madu"
                         required
                     />
                 </div>
 
-                {/* Kategori & Harga */}
                 <div className="grid grid-cols-2 gap-4">
-                    {/* Select Kategori */}
-                    <div className="relative">
-                        <label htmlFor="kategori_id" className="block text-sm font-medium text-gray-700">Kategori</label>
+                    {/* Kategori */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
                         <select
-                            id="kategori_id"
-                            name="kategori_id"
-                            value={formData.kategori_id}
+                            name="category"
+                            value={formData.category}
                             onChange={handleChange}
-                            className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-blue-500"
                             required
                         >
                             {categories.map(cat => (
-                                <option key={cat.kategori_id} value={cat.kategori_id}>{cat.nama_kategori}</option>
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
                             ))}
                         </select>
                     </div>
 
-                    {/* Input Harga */}
-                    <div className="relative">
-                        <label htmlFor="harga" className="block text-sm font-medium text-gray-700">Harga (Rp)</label>
-                        <DollarSign className="absolute left-3 top-9 w-5 h-5 text-gray-400" />
-                        <input
-                            id="harga"
-                            name="harga"
-                            type="number"
-                            min="0"
-                            step="1000"
-                            value={formData.harga}
-                            onChange={handleChange}
-                            className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 pl-10 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Contoh: 25000"
-                            required
-                        />
+                    {/* Harga */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Harga (Rp)</label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span className="text-gray-500 text-sm">Rp</span>
+                            </div>
+                            <input
+                                name="price"
+                                type="number"
+                                min="0"
+                                value={formData.price}
+                                onChange={handleChange}
+                                className="w-full border border-gray-300 rounded-lg p-2.5 pl-10 focus:ring-2 focus:ring-blue-500"
+                                placeholder="0"
+                                required
+                            />
+                        </div>
                     </div>
                 </div>
-
-                {/* Input URL Gambar */}
-                <div className="relative">
-                    <label htmlFor="gambar_url" className="block text-sm font-medium text-gray-700">URL Gambar (Opsional)</label>
-                    <Image className="absolute left-3 top-9 w-5 h-5 text-gray-400" />
-                    <input
-                        id="gambar_url"
-                        name="gambar_url"
-                        type="text"
-                        value={formData.gambar_url}
-                        onChange={handleChange}
-                        className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 pl-10 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="http://via.placeholder.com/150"
-                    />
-                </div>
                 
-                {/* Status Aktif */}
-                <div className="flex items-center">
+                {/* Status Ketersediaan */}
+                <div className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <input
-                        id="is_active"
-                        name="is_active"
+                        id="isAvailable"
+                        name="isAvailable"
                         type="checkbox"
-                        checked={formData.is_active}
+                        checked={formData.isAvailable}
                         onChange={handleChange}
-                        className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
-                    <label htmlFor="is_active" className="ml-2 block text-sm font-medium text-gray-900">
-                        Item aktif (dapat dijual)
+                    <label htmlFor="isAvailable" className="ml-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
+                        Menu Tersedia (Bisa Dipesan)
                     </label>
                 </div>
 
-                <div className="pt-4 flex justify-end space-x-3">
-                    <Button type="button" variant="secondary" onClick={onClose}>Batal</Button>
-                    <Button type="submit" variant="primary">
-                        {isEdit ? 'Simpan Perubahan' : 'Tambah Item'}
+                <div className="pt-2 flex justify-end space-x-3 border-t border-gray-100 mt-4">
+                    <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+                        Batal
+                    </Button>
+                    <Button type="submit" variant="primary" disabled={isSubmitting}>
+                        {isSubmitting || uploading ? (
+                            <span className="flex items-center">
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                {uploading ? 'Mengupload...' : 'Menyimpan...'}
+                            </span>
+                        ) : (
+                            isEdit ? 'Simpan Perubahan' : 'Tambah Menu'
+                        )}
                     </Button>
                 </div>
             </form>

@@ -21,8 +21,37 @@ exports.update = async (req, res) => {
 };
 
 exports.delete = async (req, res) => {
-  const { id } = req.params;
-  const { error } = await supabase.from('dining_tables').delete().eq('table_id', id);
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ message: "Table deleted" });
+  try {
+    const { id } = req.params;
+
+    // 1. Cek apakah meja ini pernah dipakai di transaksi (Orders)?
+    const { data: used, error: checkError } = await supabase
+      .from('orders')
+      .select('orderId')
+      .eq('table_id', id)
+      .limit(1);
+
+    if (used && used.length > 0) {
+      // OPSI A: JANGAN HAPUS (Tampilkan pesan error) - Disarankan
+      return res.status(400).json({ 
+        message: "Gagal hapus: Meja ini memiliki riwayat transaksi. Arsipkan atau non-aktifkan statusnya saja." 
+      });
+
+      // OPSI B: HAPUS PAKSA (Hati-hati, data order akan hilang atau error jika tidak cascade)
+      // Tidak disarankan untuk aplikasi keuangan/POS.
+    }
+
+    // 2. Jika aman (belum pernah dipakai), baru hapus
+    const { error } = await supabase
+      .from('dining_tables')
+      .delete()
+      .eq('table_id', id);
+
+    if (error) throw error;
+    
+    res.json({ message: "Meja berhasil dihapus permanen." });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };

@@ -1,238 +1,182 @@
-// ./pages/Employees.jsx
+// src/pages/Employees.jsx
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Users, Edit, Trash2, Shield, UserCheck, UserX, UserPlus, Eye, EyeOff, ChevronDown } from 'lucide-react';
+import { Users, Edit, Trash2, Shield, UserPlus, ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
+
 import Card from '../components/common/Card';
 import Table from '../components/common/Table';
 import Button from '../components/common/Button';
 import ConfirmModal from '../components/common/ConfirmModal';
 import Modal from '../components/common/Modal';
-import { useData } from '../context/DataContext'; 
-import { format } from 'date-fns';
-import { simulateHash } from '../utils/helpers';
-import { id } from 'date-fns/locale';
+import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 
-// Daftar peran yang tersedia
+// Daftar peran
 const ROLES = [
     { value: 'admin', label: 'Admin' },
     { value: 'kasir', label: 'Kasir' },
 ];
 
-// --- Sub-Komponen: Employee Form Modal ---
+// --- Employee Form Modal ---
 const EmployeeForm = ({ isOpen, onClose, employee, onSave }) => {
-    // Ambil fungsi CRUD dan user yang sedang login dari context
-    const { users, refreshData, create: dbCreate, update: dbUpdate, user: currentUser } = useData(); 
-    const [formData, setFormData] = useState({ username: '', password: '', confirmPassword: '', role: 'kasir' });
-    const [error, setError] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
+    // Mengambil fungsi CRUD dari DataContext (yang sudah ada Toast & Auto-refresh)
+    const { createUser, updateUser } = useData(); 
     const isEdit = !!employee;
 
+    const [formData, setFormData] = useState({ 
+        username: '', 
+        password: '', 
+        fullName: '',
+        role: 'kasir' 
+    });
+    const [showPassword, setShowPassword] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Reset form saat modal dibuka
     useEffect(() => {
-        if (employee) {
-            setFormData({
-                username: employee.username,
-                password: '', 
-                confirmPassword: '',
-                role: employee.role,
-            });
-        } else {
-            setFormData({ username: '', password: '', confirmPassword: '', role: 'kasir' });
+        if (isOpen) {
+            if (employee) {
+                setFormData({
+                    username: employee.username,
+                    password: '', // Password kosong saat edit (biarkan kosong jika tidak diubah)
+                    fullName: employee.fullName || '',
+                    role: employee.role,
+                });
+            } else {
+                setFormData({ username: '', password: '', fullName: '', role: 'kasir' });
+            }
         }
-        setError('');
-    }, [employee, isOpen]);
+    }, [isOpen, employee]);
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-        if (error) setError('');
-    };
-
-    const generateRandomPassword = () => {
-        const length = 10;
-        const chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHIJKLMNPQRSTUVWXYZ23456789!@#$%^&*";
-        let newPassword = Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-        setFormData(prev => ({ ...prev, password: newPassword, confirmPassword: newPassword }));
-    };
-
-    const validateForm = () => {
-        if (!formData.username || !formData.role) {
-            return 'Username dan Role wajib diisi.';
-        }
-        
-        // Cek keunikan username
-        const isDuplicate = users.some(u => 
-            u.username.toLowerCase() === formData.username.trim().toLowerCase() && 
-            (!isEdit || u.user_id !== employee.user_id)
-        );
-        if (isDuplicate) return 'Username sudah digunakan.';
-
-        // Validasi Password
-        if (!isEdit || formData.password) {
-            if (formData.password.length < 6) return 'Password minimal 6 karakter.';
-            if (formData.password !== formData.confirmPassword) return 'Konfirmasi password tidak cocok.';
-        }
-        
-        return null;
+        setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const validationError = validateForm();
-        if (validationError) {
-            setError(validationError);
+        
+        // Validasi Sederhana di Client
+        if (!formData.username || !formData.role) return; // (Browser 'required' attr akan handle ini)
+
+        // Validasi Password saat Create
+        if (!isEdit && (!formData.password || formData.password.length < 6)) {
+            alert('Password wajib diisi minimal 6 karakter.');
             return;
         }
 
+        setIsSubmitting(true);
         try {
-            const dataToSave = {
+            const payload = {
                 username: formData.username.trim(),
+                fullName: formData.fullName.trim(),
                 role: formData.role,
+                password: formData.password // Backend akan hash ini
             };
 
-            if (formData.password) {
-                dataToSave.password_hash = simulateHash(formData.password);
-            }
-
             if (isEdit) {
-                // Panggil fungsi update dari context
-                await new Promise(resolve => setTimeout(resolve, 500));
-                dbUpdate('users', employee.user_id, dataToSave, 'user_id'); 
+                // Update User (Panggil fungsi Context)
+                await updateUser(employee.userId, payload);
             } else {
-                // Panggil fungsi create dari context
-                dataToSave.password_hash = dataToSave.password_hash || simulateHash('default123'); 
-                dbCreate('users', dataToSave, 'user_id');
+                // Create User (Panggil fungsi Context)
+                await createUser(payload);
             }
             
-            refreshData('users');
-            onSave();
+            onSave(); // Tutup modal & reset state parent
             onClose();
         } catch (err) {
-            setError('Gagal menyimpan data karyawan. Silakan coba lagi.');
-            console.error(err);
+            console.error("Form Error:", err);
+            // Error sudah ditampilkan via Toast di DataContext, jadi tidak perlu alert di sini
+        } finally {
+            setIsSubmitting(false);
         }
     };
-    
-    // Simulasi Password Strength Indicator
-    const getPasswordStrength = () => {
-        if (!formData.password) return { label: 'Kosong', color: 'text-gray-400' };
-        const len = formData.password.length;
-        const hasUpper = /[A-Z]/.test(formData.password);
-        const hasLower = /[a-z]/.test(formData.password);
-        const hasNum = /[0-9]/.test(formData.password);
-        const hasSym = /[^A-Za-z0-9]/.test(formData.password);
-        
-        const score = [hasUpper, hasLower, hasNum, hasSym].filter(Boolean).length;
-        
-        if (len >= 10 && score >= 3) return { label: 'Kuat', color: 'text-green-600' };
-        if (len >= 6 && score >= 2) return { label: 'Sedang', color: 'text-yellow-600' };
-        return { label: 'Lemah', color: 'text-red-600' };
-    };
-
-    const strength = getPasswordStrength();
-    
-    // Cek apakah karyawan yang diedit adalah user yang sedang login
-    const isEditingSelf = isEdit && employee.user_id === currentUser?.user_id;
 
     return (
         <Modal 
             isOpen={isOpen} 
             onClose={onClose} 
-            title={isEdit ? `Edit Karyawan: ${employee?.username}` : 'Tambah Karyawan Baru'}
+            title={isEdit ? `Edit Karyawan` : 'Tambah Karyawan Baru'}
         >
             <form onSubmit={handleSubmit} className="space-y-4">
-                {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 text-sm rounded-md">{error}</div>}
                 
-                {/* Input Username */}
-                <div className="relative">
-                    <label htmlFor="username" className="block text-sm font-medium text-gray-700">Username</label>
+                {/* Username */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Username</label>
                     <input
-                        id="username"
                         name="username"
                         type="text"
                         value={formData.username}
                         onChange={handleChange}
-                        className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Username unik"
+                        className="mt-1 block w-full border border-gray-300 rounded-lg p-2.5 focus:ring-blue-500 disabled:bg-gray-100 text-gray-900"
+                        placeholder="username_unik"
                         required
-                        disabled={isEditingSelf} 
+                        disabled={isEdit} // Username tidak boleh diubah saat edit (Primary identifier logic)
                     />
                 </div>
 
-                {/* Dropdown Role */}
-                <div className="relative">
-                    <label htmlFor="role" className="block text-sm font-medium text-gray-700">Role</label>
-                    <div className="relative">
-                        <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                {/* Full Name */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Nama Lengkap</label>
+                    <input
+                        name="fullName"
+                        type="text"
+                        value={formData.fullName}
+                        onChange={handleChange}
+                        className="mt-1 block w-full border border-gray-300 rounded-lg p-2.5 focus:ring-blue-500 text-gray-900"
+                        placeholder="Nama Karyawan"
+                    />
+                </div>
+
+                {/* Role */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Role</label>
+                    <div className="relative mt-1">
                         <select
-                            id="role"
                             name="role"
                             value={formData.role}
                             onChange={handleChange}
-                            className="appearance-none block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                            disabled={isEditingSelf} 
+                            className="block w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg bg-white focus:ring-blue-500 appearance-none text-gray-900"
                         >
-                            {ROLES.map(role => (
-                                <option key={role.value} value={role.value}>{role.label}</option>
+                            {ROLES.map(r => (
+                                <option key={r.value} value={r.value}>{r.label}</option>
                             ))}
                         </select>
-                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
                     </div>
                 </div>
 
-                {/* Password Fields */}
-                <div className="space-y-4 border-t pt-4 border-gray-100">
-                    <p className="text-sm font-semibold text-gray-800">{isEdit ? 'Ubah Password (Kosongkan jika tidak diubah)' : 'Password'}</p>
-                    
-                    <div className="relative">
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                {/* Password */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                        {isEdit ? 'Password Baru (Opsional)' : 'Password'}
+                    </label>
+                    <div className="relative mt-1">
                         <input
-                            id="password"
                             name="password"
                             type={showPassword ? 'text' : 'password'}
                             value={formData.password}
                             onChange={handleChange}
-                            className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500 pr-12"
-                            placeholder={isEdit ? 'Min. 6 karakter' : 'Min. 6 karakter'}
+                            className="block w-full border border-gray-300 rounded-lg p-2.5 pr-10 focus:ring-blue-500 text-gray-900"
+                            placeholder={isEdit ? "Biarkan kosong jika tidak diubah" : "Min. 6 karakter"}
                         />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-9 text-gray-500 hover:text-gray-700">
-                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        <button 
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                        >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                     </div>
-                    
-                    <div className="flex justify-between items-center text-xs">
-                        <span className="text-gray-500">Kekuatan Password:</span>
-                        <span className={`font-semibold ${strength.color}`}>{strength.label}</span>
-                    </div>
-
-                    <div className="relative">
-                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Konfirmasi Password</label>
-                        <input
-                            id="confirmPassword"
-                            name="confirmPassword"
-                            type={showPassword ? 'text' : 'password'}
-                            value={formData.confirmPassword}
-                            onChange={handleChange}
-                            className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500 pr-12"
-                            placeholder="Ketik ulang password"
-                        />
-                    </div>
-                    
-                    <Button 
-                        type="button" 
-                        variant="secondary" 
-                        size="sm" 
-                        onClick={generateRandomPassword}
-                        className="w-full text-xs"
-                    >
-                        Generate Password Otomatis
-                    </Button>
                 </div>
 
-
-                <div className="pt-4 flex justify-end space-x-3">
-                    <Button type="button" variant="secondary" onClick={onClose}>Batal</Button>
-                    <Button type="submit" variant="primary">
-                        {isEdit ? 'Simpan Perubahan' : 'Tambah Karyawan'}
+                <div className="pt-4 flex justify-end space-x-3 border-t border-gray-100 mt-4">
+                    <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+                        Batal
+                    </Button>
+                    <Button type="submit" variant="primary" disabled={isSubmitting}>
+                        {isSubmitting ? 'Menyimpan...' : (isEdit ? 'Simpan Perubahan' : 'Buat Akun')}
                     </Button>
                 </div>
             </form>
@@ -241,135 +185,149 @@ const EmployeeForm = ({ isOpen, onClose, employee, onSave }) => {
 };
 
 
-// --- Komponen Utama: Employees ---
+// --- Main Component: Employees ---
 const Employees = () => {
-    // Pastikan mengambil user (currentUser) dan remove function dari useData
-    const { users, refreshData, user: currentUser, remove: dbRemove } = useData(); 
+    // Ambil data users dan fungsi delete dari DataContext
+    const { users, deleteUser } = useData(); 
+    const { user: currentUser } = useAuth(); 
+    
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [filterRole, setFilterRole] = useState('all');
     
-    // Helper untuk membandingkan ID pengguna, menggunakan optional chaining
-// Helper untuk membandingkan ID pengguna, menggunakan optional chaining
-    const isCurrentUser = (item) => {
-        // Pastikan 'item' ada dan 'currentUser' ada, baru lakukan perbandingan ID
-        if (!item || !currentUser) return false; 
-        return item.user_id === currentUser.user_id;
+    // Helper: Cek apakah item adalah user yang sedang login
+    const isSelf = (item) => {
+        if (!item || !currentUser) return false;
+        // Bandingkan userId atau username
+        return currentUser.userId === item.userId || currentUser.username === item.username;
     };
-    const handleDelete = (employee) => {
-        if (isCurrentUser(employee)) {
-            alert('Anda tidak bisa menghapus akun Anda sendiri.');
+
+    const handleEdit = (item) => {
+        setSelectedEmployee(item);
+        setIsFormOpen(true);
+    };
+
+    const handleDelete = (item) => {
+        if (isSelf(item)) {
+            // Proteksi sederhana di UI
+            alert("Anda tidak bisa menghapus akun sendiri.");
             return;
         }
-        setSelectedEmployee(employee);
+        setSelectedEmployee(item);
         setIsModalOpen(true);
     };
 
     const confirmDelete = async () => {
+        if (!selectedEmployee) return;
         try {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            // Panggil fungsi remove dari context
-            const success = dbRemove('users', selectedEmployee.user_id, 'user_id');
-            if (success) {
-                 refreshData('users');
-            } else {
-                 alert('Gagal menghapus pengguna.');
-            }
+            // Panggil Delete User (Toast & Refresh handled by Context)
+            await deleteUser(selectedEmployee.userId); 
         } catch (error) {
-            console.error("Gagal menghapus karyawan:", error);
+            console.error("Error deleting user:", error);
         } finally {
             setIsModalOpen(false);
             setSelectedEmployee(null);
         }
     };
     
-    // Filter user berdasarkan role
-    const filteredUsers = users.filter(user => filterRole === 'all' || user.role === filterRole);
+    // Filter User
+    const filteredUsers = (users || []).filter(u => filterRole === 'all' || u.role === filterRole);
 
+    // Definisi Kolom Tabel
     const columns = [
-        { header: 'Username', accessor: 'username' },
-        { header: 'Role', accessor: 'role', render: (role) => (
-            <span 
-                className={`inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium capitalize ${
-                    role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                }`}
-            >
-                <Shield className="w-4 h-4 mr-1" />
-                {role}
-            </span>
-        )},
-        { header: 'Status', accessor: 'status', render: (status, item) => (
-            <span className={`flex items-center text-sm font-medium ${item.is_active !== false ? 'text-green-600' : 'text-red-600'}`}>
-                {item.is_active !== false ? <UserCheck className="w-4 h-4 mr-1" /> : <UserX className="w-4 h-4 mr-1" />}
-                {item.is_active !== false ? 'Aktif' : 'Nonaktif'}
-            </span>
-        )},
-        { header: 'Tanggal Dibuat', accessor: 'created_at', render: (date) => (
-            format(new Date(date), 'dd MMM yyyy', { locale: id })
-        )},
-        { header: 'Aksi', render: (item) => (
-            <div className="flex space-x-2">
-                <Button 
-                    variant="secondary" 
-                    size="sm" 
-                    onClick={() => { setSelectedEmployee(item); setIsFormOpen(true); }} 
-                    icon={<Edit className="w-4 h-4" />} 
-                    // Menggunakan isCurrentUser helper untuk pengecekan
-                    disabled={isCurrentUser(item)} 
-                >
-                    Edit
-                </Button>
-                <Button 
-                    variant="danger" 
-                    size="sm" 
-                    onClick={() => handleDelete(item)} 
-                    icon={<Trash2 className="w-4 h-4" />} 
-                    // Menggunakan isCurrentUser helper untuk pengecekan
-                    disabled={isCurrentUser(item)}
-                >
-                    Hapus
-                </Button>
-            </div>
-        )}
+        { 
+            header: 'Username', 
+            accessor: 'username', 
+            render: (val) => <span className="font-semibold text-gray-900">{val}</span> 
+        },
+        { 
+            header: 'Nama Lengkap', 
+            accessor: 'fullName', 
+            render: (val) => val || <span className="text-gray-400 italic">-</span> 
+        },
+        { 
+            header: 'Role', 
+            accessor: 'role', 
+            render: (role) => (
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize 
+                    ${role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
+                    <Shield className="w-3 h-3 mr-1" />
+                    {role}
+                </span>
+            )
+        },
+        { 
+            header: 'Terdaftar', 
+            accessor: 'created_at', 
+            render: (date) => date ? format(new Date(date), 'dd MMM yyyy', { locale: id }) : '-'
+        },
+        { 
+            header: 'Aksi', 
+            render: (_, item) => ( // Gunakan (_, item) agar mengambil object baris dengan benar
+                <div className="flex space-x-2">
+                    <Button 
+                        variant="secondary" 
+                        size="sm" 
+                        onClick={() => handleEdit(item)} 
+                        icon={<Edit className="w-4 h-4" />}
+                    >
+                        Edit
+                    </Button>
+                    <Button 
+                        variant="danger" 
+                        size="sm" 
+                        onClick={() => handleDelete(item)} 
+                        icon={<Trash2 className="w-4 h-4" />} 
+                        disabled={isSelf(item)} // Disable tombol hapus jika user sendiri
+                    >
+                        Hapus
+                    </Button>
+                </div>
+            )
+        }
     ];
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center"><Users className="w-6 h-6 mr-2 text-blue-600" /> Manajemen Akun Karyawan</h1>
-            <p className="text-gray-500">Kelola akses akun admin dan kasir restoran.</p>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+                <Users className="w-6 h-6 mr-2 text-blue-600" /> Karyawan
+            </h1>
+            <p className="text-gray-500">Kelola akses pengguna sistem (Admin & Kasir).</p>
 
             <Card className="p-4 sm:p-6">
-                 {/* Controls & Filter */}
-                <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
-                    <div className="relative">
-                        <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <div className="flex justify-between items-center mb-6">
+                    {/* Filter Role */}
+                    <div className="relative w-48">
                         <select
-                            className="appearance-none block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-lg bg-white focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                            className="block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 bg-white text-sm"
                             value={filterRole}
                             onChange={(e) => setFilterRole(e.target.value)}
                         >
                             <option value="all">Semua Role</option>
-                            {ROLES.map(role => (
-                                <option key={role.value} value={role.value}>{role.label}</option>
-                            ))}
+                            {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                         </select>
-                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     </div>
                     
+                    {/* Tombol Tambah */}
                     <Button 
                         variant="primary" 
                         onClick={() => { setSelectedEmployee(null); setIsFormOpen(true); }} 
                         icon={<UserPlus className="w-5 h-5" />}
                     >
-                        Tambah Karyawan
+                        Tambah User
                     </Button>
                 </div>
 
-                <Table columns={columns} data={filteredUsers} emptyMessage="Tidak ada data karyawan ditemukan." />
+                <Table 
+                    columns={columns} 
+                    data={filteredUsers} 
+                    emptyMessage="Tidak ada data karyawan ditemukan." 
+                />
             </Card>
 
-            {/* Modal Create/Edit */}
+            {/* Modal Form (Create/Edit) */}
             <EmployeeForm
                 isOpen={isFormOpen}
                 onClose={() => setIsFormOpen(false)}
@@ -377,14 +335,14 @@ const Employees = () => {
                 onSave={() => setSelectedEmployee(null)}
             />
 
-            {/* Confirmation Modal (Delete) */}
+            {/* Modal Konfirmasi Hapus */}
             <ConfirmModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onConfirm={confirmDelete}
-                title="Hapus Akun Karyawan"
-                message={`Apakah Anda yakin ingin menghapus akun **${selectedEmployee?.username}**?`}
-                confirmText="Ya, Hapus Akun"
+                title="Hapus Akun"
+                message={`Apakah Anda yakin ingin menghapus akun "${selectedEmployee?.username}"? Tindakan ini tidak dapat dibatalkan.`}
+                confirmText="Ya, Hapus"
                 confirmButtonClass="bg-red-500 hover:bg-red-600"
             />
         </div>

@@ -18,7 +18,7 @@ export default function MenuPage() {
     // Fetch menu items from API
     const fetchMenuItems = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/menu/items');
+        const response = await fetch('http://localhost:5001/api/menu/items');
         const data = await response.json();
         setMenuItems(data);
       } catch (error) {

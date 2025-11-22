@@ -1,46 +1,60 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { usersData } from '../api/data';
-import { simulateHash } from '../utils/helpers';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { api } from '../services/api';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const storedUser = localStorage.getItem('pos_user');
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-  const login = async (username, password) => {
-    // Simulasi pencarian user
-    const foundUser = usersData.find(u => u.username === username);
-    if (!foundUser) throw new Error('Username tidak ditemukan.');
+    useEffect(() => {
+        // Cek localStorage untuk session persistence
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch (e) {
+                localStorage.removeItem('user');
+            }
+        }
+        setLoading(false);
+    }, []);
 
-    // Simulasi verifikasi password
-    const hashedPassword = simulateHash(password);
-    if (foundUser.password_hash !== hashedPassword) {
-      throw new Error('Password salah.');
-    }
+    const login = async (username, password) => {
+        try {
+            const response = await api.login({ username, password });
+            
+            if (response.data.success) {
+                setUser(response.data.user);
+                localStorage.setItem('user', JSON.stringify(response.data.user));
+                return response.data;
+            }
+            
+            throw new Error('Login gagal');
+        } catch (error) {
+            console.error('Login error:', error);
+            throw error;
+        }
+    };
 
-    // Login sukses
-    const userData = { user_id: foundUser.user_id, username: foundUser.username, role: foundUser.role };
-    setUser(userData);
-    localStorage.setItem('pos_user', JSON.stringify(userData));
-    return userData;
-  };
+    const logout = () => {
+        setUser(null);
+        localStorage.removeItem('user');
+    };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('pos_user');
-  };
+    const value = {
+        user,
+        login,
+        logout,
+        loading,
+        isAuthenticated: !!user,
+    };
 
-  const isAuthenticated = !!user;
-  const isAdmin = user && user.role === 'admin';
-
-  return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isAdmin, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+    return (
+        <AuthContext.Provider value={value}>
+            {!loading && children}
+        </AuthContext.Provider>
+    );
 };
 
 export const useAuth = () => useContext(AuthContext);

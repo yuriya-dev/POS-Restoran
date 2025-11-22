@@ -1,101 +1,232 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import * as db from '../api/db';
+import { api } from '../services/api'; // Import API Service yang baru dibuat
+import toast from 'react-hot-toast';
 
 const DataContext = createContext();
 
 export const DataProvider = ({ children }) => {
+    // 1. State awal array kosong (karena data belum ditarik dari server)
     const [state, setState] = useState({
-        users: db.getAll('users'),
-        menuItems: db.getAll('menu_items'),
-        categories: db.getAll('menu_categories'),
-        orders: db.getAll('orders'),
-        // Kunci 'diningTables' diubah menjadi 'tables' agar konsisten dengan state
-        tables: db.getAll('dining_tables'), 
+        users: [],
+        menuItems: [],
+        categories: [],
+        orders: [],
+        tables: [], 
     });
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true); // Default true saat load awal
+    const [error, setError] = useState(null);
 
-    const refreshData = useCallback((entity) => {
+    // 2. Fungsi Load Data Utama (Mengambil semua data sekaligus saat start)
+    const fetchInitialData = useCallback(async () => {
         setLoading(true);
-        // Simulasi delay
-        setTimeout(() => {
-            setState(prev => ({
-                ...prev,
-                [entity]: db.getAll(entity)
-            }));
+        try {
+            // Promise.all agar request berjalan paralel (lebih cepat)
+            const [usersRes, menusRes, catsRes, ordersRes, tablesRes] = await Promise.all([
+                api.getUsers().catch(() => ({ data: [] })), // Fallback empty array jika error
+                api.getMenuItems(),
+                api.getCategories(),
+                api.getOrders().catch(() => ({ data: [] })),
+                api.getTables().catch(() => ({ data: [] })),
+            ]);
+
+            setState({
+                users: usersRes.data || [],
+                menuItems: menusRes.data || [],
+                categories: catsRes.data || [],
+                orders: ordersRes.data || [],
+                tables: tablesRes.data || [],
+            });
+        } catch (err) {
+            console.error("Gagal memuat data:", err);
+            setError("Gagal terhubung ke server.");
+        } finally {
             setLoading(false);
-        }, 100);
+        }
     }, []);
+
+    // Jalankan saat komponen di-mount
+    useEffect(() => {
+        fetchInitialData();
+    }, [fetchInitialData]);
+
+    // Helper untuk refresh entity tertentu saja
+    const refreshData = useCallback(async (entity) => {
+        try {
+            let res;
+            switch (entity) {
+                case 'users': res = await api.getUsers(); break;
+                case 'menuItems': res = await api.getMenuItems(); break;
+                case 'categories': res = await api.getCategories(); break;
+                case 'tables': res = await api.getTables(); break;
+                case 'orders': res = await api.getOrders(); break;
+                default: return;
+            }
+            setState(prev => ({ ...prev, [entity]: res.data }));
+        } catch (err) {
+            console.error(`Gagal refresh ${entity}:`, err);
+        }
+    }, []);
+
+    // --- CRUD USERS (KARYAWAN) ---
+    // Create User (Register)
+    const createUser = async (userData) => {
+        await toast.promise(
+            api.register(userData),
+            {
+                loading: 'Menambahkan karyawan...',
+                success: 'Karyawan berhasil ditambahkan!',
+                error: (err) => err.response?.data?.message || 'Gagal menambahkan karyawan.'
+            }
+        );
+        await refreshData('users');
+    };
+
+    const updateUser = async (id, userData) => {
+        await toast.promise(
+            api.updateUser(id, userData),
+            {
+                loading: 'Memperbarui data...',
+                success: 'Data karyawan diperbarui!',
+                error: 'Gagal update data.'
+            }
+        );
+        await refreshData('users');
+    };
+
+    // Delete User
+const deleteUser = async (id) => {
+        await toast.promise(
+            api.deleteUser(id),
+            {
+                loading: 'Menghapus karyawan...',
+                success: 'Karyawan dihapus.',
+                error: (err) => err.response?.data?.message || 'Gagal menghapus.'
+            }
+        );
+        await refreshData('users');
+    };
 
     // --- CRUD DINING TABLES ---
     const createTable = async (data) => {
-        // ID meja harus unik, menggunakan 'meja_id' sebagai kunci
-        const newTable = db.create('dining_tables', data, 'meja_id'); 
-        refreshData('tables');
-        return newTable;
+        try {
+            await api.createTable(data);
+            await refreshData('tables'); // Refresh data dari server agar sinkron
+            return true;
+        } catch (err) {
+            console.error(err);
+            return false;
+        }
     };
     
     const updateTable = async (id, data) => {
-        // Menggunakan 'meja_id' sebagai kunci update
-        const updatedTable = db.update('dining_tables', id, data, 'meja_id');
-        refreshData('tables');
-        return updatedTable;
+        try {
+            await api.updateTable(id, data);
+            await refreshData('tables');
+            return true;
+        } catch (err) {
+            console.error(err);
+            return false;
+        }
     };
 
     const deleteTable = async (id) => {
-        // Menggunakan 'meja_id' sebagai kunci hapus
-        const success = db.remove('dining_tables', id, 'meja_id');
-        if(success) refreshData('tables');
-        return success;
+        try {
+            await api.deleteTable(id);
+            await refreshData('tables');
+            return true;
+        } catch (err) {
+            console.error(err);
+            return false;
+        }
     };
-
 
     // --- CRUD MENU CATEGORIES ---
     const createCategory = async (data) => {
-        const newCat = db.create('menu_categories', data, 'kategori_id');
-        refreshData('categories');
-        return newCat;
+        try {
+            await api.createCategory(data);
+            await refreshData('categories');
+            return true;
+        } catch (err) {
+            console.error(err);
+            return false;
+        }
     };
     
     const updateCategory = async (id, data) => {
-        const updatedCat = db.update('menu_categories', id, data, 'kategori_id');
-        refreshData('categories');
-        return updatedCat;
+        try {
+            await api.updateCategory(id, data);
+            await refreshData('categories');
+            return true;
+        } catch (err) {
+            console.error(err);
+            return false;
+        }
     };
 
     const deleteCategory = async (id) => {
-        const success = db.remove('menu_categories', id, 'kategori_id');
-        if(success) refreshData('categories');
-        return success;
+        try {
+            await api.deleteCategory(id);
+            await refreshData('categories');
+            return true;
+        } catch (err) {
+            console.error(err);
+            return false;
+        }
     };
 
-    // --- CRUD MENU ITEMS (placeholder) ---
-    const getMenuItems = useCallback(() => refreshData('menuItems'), [refreshData]);
+    // --- CRUD MENU ITEMS ---
+    // Tidak perlu getMenuItems manual karena sudah ada di state & refreshData
     
-    const updateMenuItem = async (item) => {
-        const updatedItem = db.update('menu_items', item.item_id, item, 'item_id');
-        refreshData('menuItems');
-        return updatedItem;
+    const createMenuItem = async (data) => {
+        try {
+            await api.createMenuItem(data);
+            await refreshData('menuItems');
+            return true;
+        } catch (err) {
+            console.error(err);
+            return false;
+        }
+    };
+
+    const updateMenuItem = async (id, data) => {
+        try {
+            await api.updateMenuItem(id, data);
+            await refreshData('menuItems');
+            return true;
+        } catch (err) {
+            console.error(err);
+            return false;
+        }
     };
 
     const deleteMenuItem = async (id) => {
-        const success = db.remove('menu_items', id, 'item_id');
-        if(success) refreshData('menuItems');
-        return success;
+        try {
+            await api.deleteMenuItem(id);
+            await refreshData('menuItems');
+            return true;
+        } catch (err) {
+            console.error(err);
+            return false;
+        }
     };
     
     // --- VALUE EXPORT ---
     const value = {
         ...state,
         loading,
+        error,
         refreshData,
+        // Users (Employees)
+        createUser,
+        updateUser,
+        deleteUser,
         // Categories
         createCategory, updateCategory, deleteCategory,
         // Menu Items
-        getMenuItems, updateMenuItem, deleteMenuItem,
-        // Dining Tables (Baru Ditambahkan)
-        diningTables: state.tables, // Menggunakan alias untuk kemudahan akses di komponen
+        createMenuItem, updateMenuItem, deleteMenuItem, // +createMenuItem
+        // Dining Tables
+        diningTables: state.tables, 
         createTable, updateTable, deleteTable,
-        // Others (Users, Orders, etc. will be added here)
     };
 
     return (
