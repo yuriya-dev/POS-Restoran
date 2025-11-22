@@ -4,13 +4,27 @@ const app = express();
 require('dotenv').config();
 
 // CORS Configuration
-app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// Daftar domain/origin yang diizinkan mengakses server
+const allowedOrigins = [
+  'http://localhost:5173', // Client Admin
+  'http://localhost:5174', // Client Kasir
+  'http://127.0.0.1:5173', 
+  'http://127.0.0.1:5174'
+];
 
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true // Izinkan cookie/session jika nanti diperlukan
+}));
 
 // Body Parser
 app.use(express.json());
@@ -29,6 +43,7 @@ app.use('/api/settings', require('./routes/settingsRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes')); 
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/shifts', require('./routes/shiftRoutes'));
 
 // Error Handler
 app.use((err, req, res, next) => {

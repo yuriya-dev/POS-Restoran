@@ -26,7 +26,7 @@ const MenuItems = () => {
         // Safety check jika categories belum terload
         if (!Array.isArray(categories)) return {};
         return categories.reduce((map, cat) => {
-            map[cat.id] = cat.name; 
+            map[cat.categoryId] = cat.name; 
             return map;
         }, {});
     }, [categories]);
@@ -213,7 +213,7 @@ const MenuItems = () => {
                             >
                                 <option value="all">Semua Kategori</option>
                                 {categories.map(cat => (
-                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                    <option key={cat.categoryId} value={cat.categoryId}>{cat.name}</option>
                                 ))}
                             </select>
                             {/* Chevron Icon Custom */}

@@ -3,27 +3,27 @@ import { DollarSign, Image as ImageIcon, UploadCloud, Loader2 } from 'lucide-rea
 import Button from '../common/Button';
 import Modal from '../common/Modal';
 import { useData } from '../../context/DataContext';
-import { uploadToCloudinary } from '../../services/cloudinary'; // Pastikan service ini ada
+import { uploadToCloudinary } from '../../services/cloudinary';
 
 const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
     const { categories, createMenuItem, updateMenuItem } = useData();
     const isEdit = !!item;
 
-    // State Form sesuai Schema DB (CamelCase dari JSON Server)
+    // State Form
     const [formData, setFormData] = useState({
         name: '',
         price: '',
-        category: '', // Menyimpan ID Kategori
+        category: '', 
         image_url: '',
         isAvailable: true,
     });
 
-    const [imageFile, setImageFile] = useState(null); // Untuk handle file upload
+    const [imageFile, setImageFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Effect: Reset form saat modal dibuka/ditutup atau item berubah
+    // Effect: Reset form
     useEffect(() => {
         if (isOpen) {
             if (item) {
@@ -31,7 +31,8 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                 setFormData({
                     name: item.name || '',
                     price: item.price || '',
-                    category: item.category || (categories[0]?.id || ''),
+                    // ✅ PERBAIKAN: Gunakan categoryId, bukan id
+                    category: item.category || (categories[0]?.categoryId || ''),
                     image_url: item.image_url || '',
                     isAvailable: item.isAvailable ?? true,
                 });
@@ -40,7 +41,8 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                 setFormData({
                     name: '',
                     price: '',
-                    category: categories[0]?.id || '',
+                    // ✅ PERBAIKAN: Gunakan categoryId
+                    category: categories[0]?.categoryId || '',
                     image_url: '',
                     isAvailable: true,
                 });
@@ -58,16 +60,14 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
         }));
     };
 
-    // Handle File Input Change
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            if (file.size > 2 * 1024 * 1024) { // Limit 2MB
+            if (file.size > 2 * 1024 * 1024) { 
                 setError("Ukuran file maksimal 2MB");
                 return;
             }
             setImageFile(file);
-            // Preview lokal sementara
             setFormData(prev => ({ ...prev, image_url: URL.createObjectURL(file) }));
         }
     };
@@ -77,7 +77,6 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
         setError('');
         setIsSubmitting(true);
 
-        // 1. Validasi
         if (!formData.name.trim() || !formData.price) {
             setError('Nama dan Harga wajib diisi.');
             setIsSubmitting(false);
@@ -87,7 +86,6 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
         try {
             let finalImageUrl = formData.image_url;
 
-            // 2. Upload Gambar ke Cloudinary (Jika ada file baru dipilih)
             if (imageFile) {
                 setUploading(true);
                 try {
@@ -101,25 +99,24 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                 setUploading(false);
             }
 
-            // 3. Siapkan Payload Data
             const payload = {
                 ...formData,
                 image_url: finalImageUrl,
-                category: Number(formData.category) // Pastikan ID kategori number
+                category: Number(formData.category) 
             };
 
-            // 4. Kirim ke API via Context
             if (isEdit) {
                 await updateMenuItem(item.itemId, payload);
             } else {
                 await createMenuItem(payload);
             }
             
-            onSave(); // Refresh data di parent
+            onSave(); 
             onClose();
         } catch (err) {
             console.error(err);
-            setError('Gagal menyimpan data. Silakan coba lagi.');
+            const msg = err.response?.data?.message || err.response?.data?.error || 'Gagal menyimpan data.';
+            setError(msg);
         } finally {
             setIsSubmitting(false);
             setUploading(false);
@@ -139,7 +136,7 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                     </div>
                 )}
                 
-                {/* Preview & Upload Gambar */}
+                {/* Gambar Upload */}
                 <div className="flex flex-col items-center space-y-3">
                     <div className="relative w-32 h-32 rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-50 group">
                         {formData.image_url ? (
@@ -153,17 +150,9 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                                 <ImageIcon className="w-8 h-8" />
                             </div>
                         )}
-                        
-                        {/* Overlay Upload */}
                         <label htmlFor="imageUpload" className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 flex items-center justify-center cursor-pointer transition-all">
                             <UploadCloud className="w-8 h-8 text-white opacity-0 group-hover:opacity-100" />
-                            <input 
-                                type="file" 
-                                id="imageUpload" 
-                                accept="image/*" 
-                                className="hidden" 
-                                onChange={handleFileChange} 
-                            />
+                            <input type="file" id="imageUpload" accept="image/*" className="hidden" onChange={handleFileChange} />
                         </label>
                     </div>
                     <span className="text-xs text-gray-500">Klik gambar untuk mengubah (Max 2MB)</span>
@@ -177,7 +166,7 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                         type="text"
                         value={formData.name}
                         onChange={handleChange}
-                        className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                        className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500"
                         placeholder="Contoh: Ayam Bakar Madu"
                         required
                     />
@@ -194,8 +183,9 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                             className="w-full border border-gray-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-blue-500"
                             required
                         >
+                            {/* ✅ PERBAIKAN LOOPING KATEGORI */}
                             {categories.map(cat => (
-                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                <option key={cat.categoryId} value={cat.categoryId}>{cat.name}</option>
                             ))}
                         </select>
                     </div>
@@ -221,7 +211,6 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                     </div>
                 </div>
                 
-                {/* Status Ketersediaan */}
                 <div className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <input
                         id="isAvailable"
@@ -229,7 +218,7 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                         type="checkbox"
                         checked={formData.isAvailable}
                         onChange={handleChange}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded"
                     />
                     <label htmlFor="isAvailable" className="ml-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
                         Menu Tersedia (Bisa Dipesan)
@@ -237,9 +226,7 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                 </div>
 
                 <div className="pt-2 flex justify-end space-x-3 border-t border-gray-100 mt-4">
-                    <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
-                        Batal
-                    </Button>
+                    <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>Batal</Button>
                     <Button type="submit" variant="primary" disabled={isSubmitting}>
                         {isSubmitting || uploading ? (
                             <span className="flex items-center">

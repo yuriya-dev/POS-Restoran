@@ -1,39 +1,56 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+
+// Contexts
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
+
+// Pages & Components
 import Login from './pages/Login';
 import TableMap from './pages/TableMap';
-import MenuPage from './pages/MenuPage';
-import KasirLayout from './components/KasirLayout'; 
+import OrderPage from './pages/OrderPage';
+import ShiftDashboard from './pages/ShiftDashboard';
+import KasirLayout from './components/KasirLayout';
 
-// Simple Protected Route
+// Komponen Penjaga (Satpam)
 const ProtectedRoute = ({ children }) => {
-    const { user, loading } = useAuth();
-    if (loading) return <div>Loading...</div>;
-    if (!user) return <Navigate to="/login" />;
-    return children;
+    const { user } = useAuth();
+    
+    // Jika tidak ada user, lempar ke login
+    if (!user) {
+        return <Navigate to="/login" replace />;
+    }
+    
+    // Jika ada anak (children), render anak tersebut. Jika tidak, render Outlet (untuk nested routes)
+    return children ? children : <Outlet />;
 };
 
 const App = () => {
     return (
         <AuthProvider>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                
-                {/* Route Utama yang Dilindungi */}
-                <Route element={<ProtectedRoute><KasirLayout /></ProtectedRoute>}>
-                    {/* Landing page setelah login adalah Denah Meja */}
-                    <Route index element={<TableMap />} /> 
-                    
-                    {/* Halaman Order (diasumsikan route-nya nanti /order/:tableId) */}
-                    <Route path="/order/:tableId" element={<MenuPage />} /> 
-                </Route>
+            <CartProvider>
+                <BrowserRouter>
+                    <Routes>
+                        {/* Route Public */}
+                        <Route path="/login" element={<Login />} />
 
-                {/* Catch-all */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-            </BrowserRouter>
+                        {/* Route Protected: Semua halaman di dalam ini butuh login */}
+                        <Route element={<ProtectedRoute><KasirLayout /></ProtectedRoute>}>
+                            {/* Halaman Utama: Denah Meja */}
+                            <Route index element={<TableMap />} />
+                            
+                            {/* Halaman Order (POS) */}
+                            <Route path="/order/:tableId" element={<OrderPage />} />
+                            
+                            {/* Halaman Shift & Laporan */}
+                            <Route path="/shift" element={<ShiftDashboard />} />
+                        </Route>
+
+                        {/* Catch-all Redirect */}
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                </BrowserRouter>
+            </CartProvider>
         </AuthProvider>
     );
 };
