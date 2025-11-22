@@ -1,5 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Filter, Download, Award, ListOrdered } from 'lucide-react';
+import { 
+    BarChart3, DollarSign, ShoppingCart, TrendingUp, Filter, Download, Award, ListOrdered, ChevronDown, 
+    ArrowUp, ArrowDown 
+} from 'lucide-react';
 import { subDays, startOfMonth, isWithinInterval, format, startOfDay, endOfDay } from 'date-fns';
 import { id } from 'date-fns/locale';
 
@@ -19,37 +22,63 @@ const PERIOD_OPTIONS = [
     { label: 'Kustom', value: 'custom', getRange: () => null }, 
 ];
 
-// Fungsi Kalkulasi Metrik
-const calculateMetrics = (orders) => { 
-    // Helper: Pastikan nilai dikonversi ke Number, jika null/error jadi 0
-    const getVal = (val) => parseFloat(val) || 0;
+// OPSI FILTER BARU
+const STATUS_OPTIONS = [
+    { value: 'all', label: 'Semua Status' },
+    { value: 'paid', label: 'Lunas' },
+    { value: 'active', label: 'Aktif (Pending)' },
+    { value: 'cancelled', label: 'Dibatalkan' },
+];
 
+const PAYMENT_OPTIONS = [
+    { value: 'all', label: 'Semua Metode' },
+    { value: 'cash', label: 'Tunai' },
+    { value: 'qris', label: 'QRIS' },
+    { value: 'debit', label: 'Debit Card' },
+    { value: 'other', label: 'Lainnya' },
+];
+
+// Fungsi Kalkulasi Metrik (tetap sama)
+const calculateMetrics = (orders) => { 
+    const getVal = (val) => parseFloat(val) || 0;
     const totalRevenue = orders.reduce((acc, order) => acc + getVal(order.totalAmount), 0);
     const totalTransactions = orders.length;
     const avgTransaction = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
-    
-    const totalCash = orders
-        .filter(o => (o.paymentMethod || '').toLowerCase() === 'cash')
-        .reduce((acc, o) => acc + getVal(o.totalAmount), 0);
-
-    const totalNonCash = orders
-        .filter(o => (o.paymentMethod || '').toLowerCase() !== 'cash')
-        .reduce((acc, o) => acc + getVal(o.totalAmount), 0);
-        
+    const totalCash = orders.filter(o => (o.paymentMethod || '').toLowerCase() === 'cash').reduce((acc, o) => acc + getVal(o.totalAmount), 0);
+    const totalNonCash = orders.filter(o => (o.paymentMethod || '').toLowerCase() !== 'cash').reduce((acc, o) => acc + getVal(o.totalAmount), 0);
     const paymentBreakdown = orders.reduce((acc, order) => { 
         const method = order.paymentMethod || 'Lainnya';
         acc[method] = (acc[method] || 0) + 1; 
         return acc; 
     }, {});
-
     return { totalRevenue, totalTransactions, avgTransaction, totalCash, totalNonCash, paymentBreakdown };
 };
 
 const Reports = () => {
-    const { orders, settings } = useData(); // Ambil orders dari context
+    const { orders, settings } = useData(); 
     const [selectedPeriod, setSelectedPeriod] = useState('7days');
     const [customRange, setCustomRange] = useState({ start: null, end: null });
     const [activeTab, setActiveTab] = useState('overview'); 
+    
+    // STATE UNTUK FILTER TRANSAKSI
+    const [filterStatus, setFilterStatus] = useState('paid'); 
+    const [filterPaymentMethod, setFilterPaymentMethod] = useState('all'); 
+
+    // ✅ STATE BARU UNTUK SORTIR
+    const [sortColumn, setSortColumn] = useState('createdAt'); // Default sorting
+    const [sortDirection, setSortDirection] = useState('desc'); // Default descending (terbaru dulu)
+
+    // Logika Pengurutan
+    const handleSort = (column) => {
+        if (sortColumn === column) {
+            // Balik arah jika kolom sama
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            // Set kolom baru, defaultnya descending
+            setSortColumn(column);
+            setSortDirection('desc');
+        }
+    };
     
     // 1. Tentukan Rentang Tanggal
     const dateRange = useMemo(() => {
@@ -63,23 +92,61 @@ const Reports = () => {
         return PERIOD_OPTIONS.find(p => p.value === selectedPeriod)?.getRange() || { start: null, end: null };
     }, [selectedPeriod, customRange]);
 
-    // 2. Filter Orders (Client Side Filtering untuk Overview)
+    // 2. Filter & Sortir Orders
     const filteredOrders = useMemo(() => {
         if (!Array.isArray(orders) || orders.length === 0 || !dateRange.start || !dateRange.end) return [];
         
-        return orders.filter(order => {
+        let result = orders.filter(order => {
             const orderDate = new Date(order.createdAt); 
-            return isWithinInterval(orderDate, { start: dateRange.start, end: dateRange.end });
-        }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    }, [orders, dateRange]);
+            
+            // Filter 1: Tanggal
+            const dateMatch = isWithinInterval(orderDate, { start: dateRange.start, end: dateRange.end });
+            
+            // Filter 2: Status
+            const statusMatch = filterStatus === 'all' || order.status === filterStatus;
+            
+            // Filter 3: Pembayaran
+            const paymentMatch = filterPaymentMethod === 'all' || order.paymentMethod === filterPaymentMethod;
+
+            return dateMatch && statusMatch && paymentMatch;
+        });
+
+        // ✅ Logika Sortir
+        result.sort((a, b) => {
+            let valA = a[sortColumn];
+            let valB = b[sortColumn];
+
+            // Konversi nilai yang mungkin angka (Order ID, Total, CreatedAt)
+            if (sortColumn === 'totalAmount' || sortColumn === 'orderId') {
+                valA = parseFloat(valA) || 0;
+                valB = parseFloat(valB) || 0;
+            } else if (sortColumn === 'createdAt') {
+                valA = new Date(valA).getTime();
+                valB = new Date(valB).getTime();
+            } else {
+                // Untuk string, lakukan perbandingan localeCompare
+                valA = String(valA).toLowerCase();
+                valB = String(valB).toLowerCase();
+            }
+
+            if (valA < valB) {
+                return sortDirection === 'asc' ? -1 : 1;
+            }
+            if (valA > valB) {
+                return sortDirection === 'asc' ? 1 : -1;
+            }
+            return 0;
+        });
+
+        return result;
+    }, [orders, dateRange, filterStatus, filterPaymentMethod, sortColumn, sortDirection]); // ✅ Tambah dependencies sort
     
-    // 3. Hitung Metrik
+    // 3. Hitung Metrik (tetap sama)
     const metrics = useMemo(() => calculateMetrics(filteredOrders), [filteredOrders]);
 
-    // Fungsi Export Sederhana
+    // Fungsi Export Sederhana (tetap sama)
     const handleExport = () => {
         if(filteredOrders.length === 0) return alert("Tidak ada data untuk diexport.");
-        
         const dataStr = JSON.stringify(filteredOrders, null, 2);
         const blob = new Blob([dataStr], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -91,32 +158,67 @@ const Reports = () => {
         document.body.removeChild(link);
     };
 
-    // Format String Tanggal untuk API Top Selling
+    // Format String Tanggal untuk API Top Selling (tetap sama)
     const startDateStr = dateRange.start ? dateRange.start.toISOString() : null;
     const endDateStr = dateRange.end ? dateRange.end.toISOString() : null;
-
-    // Pajak Settings
     const taxRate = settings?.taxRate || 0.1;
 
-    // Kolom Tabel Transaksi
+    // ✅ Komponen Header Kolom Sortable
+    const SortableHeader = ({ header, accessor }) => {
+        const isCurrentSort = sortColumn === accessor;
+        const Icon = isCurrentSort 
+            ? (sortDirection === 'asc' ? ArrowUp : ArrowDown) 
+            : ArrowUp;
+        
+        return (
+            <div 
+                className="flex items-center cursor-pointer hover:text-blue-600 transition-colors"
+                onClick={() => handleSort(accessor)}
+            >
+                {header}
+                {/* Tampilkan ikon hanya jika kolom bisa disortir */}
+                {['orderId', 'createdAt', 'totalAmount'].includes(accessor) && (
+                    <Icon className={`w-3 h-3 ml-1 ${isCurrentSort ? 'text-blue-600' : 'text-gray-400'}`} />
+                )}
+            </div>
+        );
+    };
+
+    // ✅ Kolom Tabel Transaksi (Menggunakan SortableHeader)
     const transactionColumns = [
         { 
-            header: 'No. Order', 
-            accessor: 'orderId', 
-            render: (id) => <span className="font-mono text-xs">#{id}</span>
+            header: <SortableHeader header='No. Order' accessor='dailyNumber' />,
+            accessor: 'dailyNumber', 
+            render: (dailyNum, item) => { // Akses dailyNum (kolom utama) dan item (object row)
+                // Jika dailyNum (nomor harian) null/0, gunakan orderId global sebagai fallback
+                const displayId = dailyNum || item.orderId; 
+                
+                // Render sebagai ID harian jika ada, atau ID global jika legacy
+                return (
+                    <span className={`font-mono text-xs font-semibold ${dailyNum ? 'text-blue-600' : 'text-gray-500'}`}>
+                        #{displayId}
+                    </span>
+                );
+            }
         },
         { 
-            header: 'Waktu', 
+            header: <SortableHeader header='Waktu' accessor='createdAt' />,
             accessor: 'createdAt', 
             render: (time) => format(new Date(time), 'dd/MM HH:mm', { locale: id }) 
         },
         { 
-            header: 'Info', 
-            accessor: 'orderName', 
-            render: (name) => <span className="font-medium">{name || '-'}</span> 
+            header: 'Status', 
+            accessor: 'status', 
+            render: (status) => (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                    status === 'paid' ? 'bg-green-100 text-green-800' : status === 'active' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                }`}>
+                    {status}
+                </span>
+            )
         },
         { 
-            header: 'Total', 
+            header: <SortableHeader header='Total' accessor='totalAmount' />, 
             accessor: 'totalAmount', 
             render: formatCurrency 
         },
@@ -172,17 +274,9 @@ const Reports = () => {
                     </div>
                     {selectedPeriod === 'custom' && (
                         <div className="flex gap-2 w-full lg:w-auto">
-                            <input 
-                                type="date" 
-                                className="border p-2 rounded text-sm" 
-                                onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))} 
-                            />
+                            <input type="date" className="border p-2 rounded text-sm" onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))} />
                             <span className="self-center">-</span>
-                            <input 
-                                type="date" 
-                                className="border p-2 rounded text-sm" 
-                                onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))} 
-                            />
+                            <input type="date" className="border p-2 rounded text-sm" onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))} />
                         </div>
                     )}
                 </div>
@@ -209,7 +303,7 @@ const Reports = () => {
                     value={formatCurrency(metrics.totalNonCash)} 
                     icon={TrendingUp} 
                     color="text-indigo-600"
-                    subText={`Metode: ${Object.keys(metrics.paymentBreakdown).length} Tipe`}
+                    subText={`Metode: ${Object.keys(metrics.paymentBreakdown).join(', ')}`}
                 />
                 <Card 
                     title="Estimasi Pajak" 
@@ -246,6 +340,38 @@ const Reports = () => {
                                     <span>Riwayat Transaksi</span>
                                     <span className="text-sm font-normal text-gray-500">Total: {filteredOrders.length}</span>
                                 </h3>
+                                
+                                {/* BAR FILTER TRANSAKSI */}
+                                <div className="flex space-x-3 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                    {/* Filter Status */}
+                                    <div className="relative flex-1">
+                                        <select
+                                            value={filterStatus}
+                                            onChange={(e) => setFilterStatus(e.target.value)}
+                                            className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-sm appearance-none cursor-pointer"
+                                        >
+                                            {STATUS_OPTIONS.map(opt => (
+                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                                    </div>
+
+                                    {/* Filter Pembayaran */}
+                                    <div className="relative flex-1">
+                                        <select
+                                            value={filterPaymentMethod}
+                                            onChange={(e) => setFilterPaymentMethod(e.target.value)}
+                                            className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-sm appearance-none cursor-pointer"
+                                        >
+                                            {PAYMENT_OPTIONS.map(opt => (
+                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                                    </div>
+                                </div>
+                                
                                 <Table 
                                     columns={transactionColumns} 
                                     data={filteredOrders} 

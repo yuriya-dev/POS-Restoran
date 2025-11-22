@@ -14,3 +14,17 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+src/
+├── components/
+│   ├── TableCard.jsx       (Kotak Meja)
+│   ├── MenuGrid.jsx        (Grid Foto Makanan)
+│   ├── CartSidebar.jsx     (Keranjang Belanja)
+│   └── PaymentModal.jsx    (Pop-up Bayar)
+├── pages/
+│   ├── Login.jsx
+│   ├── TableMap.jsx        (Denah Meja)
+│   ├── OrderPage.jsx       (Halaman POS Utama)
+│   └── TransactionHistory.jsx
+└── context/
+    └── CartContext.jsx     (Untuk simpan state belanjaan sementara)

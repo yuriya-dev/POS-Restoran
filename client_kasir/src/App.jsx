@@ -1,35 +1,41 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Login from './pages/Login';
+import TableMap from './pages/TableMap';
+import MenuPage from './pages/MenuPage';
+import KasirLayout from './components/KasirLayout'; 
 
-function App() {
-  const [count, setCount] = useState(0)
+// Simple Protected Route
+const ProtectedRoute = ({ children }) => {
+    const { user, loading } = useAuth();
+    if (loading) return <div>Loading...</div>;
+    if (!user) return <Navigate to="/login" />;
+    return children;
+};
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+const App = () => {
+    return (
+        <AuthProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                
+                {/* Route Utama yang Dilindungi */}
+                <Route element={<ProtectedRoute><KasirLayout /></ProtectedRoute>}>
+                    {/* Landing page setelah login adalah Denah Meja */}
+                    <Route index element={<TableMap />} /> 
+                    
+                    {/* Halaman Order (diasumsikan route-nya nanti /order/:tableId) */}
+                    <Route path="/order/:tableId" element={<MenuPage />} /> 
+                </Route>
 
-export default App
+                {/* Catch-all */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            </BrowserRouter>
+        </AuthProvider>
+    );
+};
+
+export default App;
