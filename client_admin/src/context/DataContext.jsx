@@ -142,36 +142,39 @@ const deleteUser = async (id) => {
 
     // --- CRUD MENU CATEGORIES ---
     const createCategory = async (data) => {
-        try {
-            await api.createCategory(data);
-            await refreshData('categories');
-            return true;
-        } catch (err) {
-            console.error(err);
-            return false;
-        }
+        await toast.promise(
+            api.createCategory(data),
+            {
+                loading: 'Menambahkan kategori...',
+                success: 'Kategori berhasil ditambahkan!',
+                error: (err) => err.response?.data?.message || 'Gagal menambahkan.'
+            }
+        );
+        await refreshData('categories');
     };
     
     const updateCategory = async (id, data) => {
-        try {
-            await api.updateCategory(id, data);
-            await refreshData('categories');
-            return true;
-        } catch (err) {
-            console.error(err);
-            return false;
-        }
+        await toast.promise(
+            api.updateCategory(id, data),
+            {
+                loading: 'Menyimpan perubahan...',
+                success: 'Kategori berhasil diperbarui!',
+                error: (err) => err.response?.data?.message || 'Gagal update.'
+            }
+        );
+        await refreshData('categories');
     };
 
     const deleteCategory = async (id) => {
-        try {
-            await api.deleteCategory(id);
-            await refreshData('categories');
-            return true;
-        } catch (err) {
-            console.error(err);
-            return false;
-        }
+        await toast.promise(
+            api.deleteCategory(id),
+            {
+                loading: 'Menghapus kategori...',
+                success: 'Kategori dihapus.',
+                error: (err) => err.response?.data?.message || 'Gagal menghapus.'
+            }
+        );
+        await refreshData('categories');
     };
 
     // --- CRUD MENU ITEMS ---
