@@ -13,15 +13,22 @@ exports.create = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
-  const { id } = req.params;
-  const { data, error } = await supabase.from('categories').update(req.body).eq('id', id).select();
+  const { id } = req.params; // Di URL router tetap /categories/:id tidak masalah
+  const { data, error } = await supabase
+    .from('categories')
+    .update(req.body)
+    .eq('categoryId', id)
+    .select();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data[0]);
 };
 
 exports.delete = async (req, res) => {
   const { id } = req.params;
-  const { error } = await supabase.from('categories').delete().eq('id', id);
+  const { error } = await supabase
+    .from('categories')
+    .delete()
+    .eq('categoryId', id);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ message: "Category deleted" });
 };

@@ -1,145 +1,346 @@
-# Sistem POS Restoran
+# 🍽️ Sistem POS Restoran (Fullstack)
 
-Sistem Point of Sale (POS) Restoran dengan arsitektur monorepo yang terdiri dari:
-- Backend API (Express + MySQL)
-- Frontend Admin (React + Vite + Tailwind)
-- Frontend Kasir (React + Vite + Tailwind)
+Aplikasi Point of Sale (POS) berbasis web modern yang dirancang untuk manajemen restoran yang efisien. Sistem ini terintegrasi penuh mulai dari manajemen menu, inventaris, hingga laporan keuangan real-time.
 
-## Prasyarat
+Solusi ini terdiri dari tiga modul utama yang saling terhubung:
 
-- Node.js (versi 16.x atau lebih baru)
-- npm (sudah terinstall dengan Node.js)
-- MySQL (untuk database)
+* **API Server (server)**: Backend RESTful yang menangani logika bisnis dan database.
+* **Dashboard Admin (client_admin)**: Pusat kontrol untuk manajer/pemilik restoran.
+* **Antarmuka Kasir (client_kasir)**: Aplikasi frontend khusus untuk operasional harian staf.
 
-## Struktur Proyek
+---
+
+## 🌟 Fitur Utama
+
+### 👨‍💼 Admin Dashboard (client_admin)
+
+* Dashboard Analitik Real-time: Grafik penjualan harian, ringkasan omzet, dan statistik item terlaris.
+* Manajemen Menu Lengkap: Tambah, edit, hapus, dan non-aktifkan menu makanan/minuman. Dukungan upload gambar.
+* Kategori Menu: Pengelompokan menu dinamis dengan ikon kustom.
+* Manajemen Meja (Table Map): Pengaturan layout meja (Dine-in) dan titik layanan (Takeaway/Delivery).
+* Manajemen Karyawan (RBAC): Kelola akun Admin dan Kasir dengan kontrol akses berbasis peran.
+* Laporan Transaksi: Filter riwayat transaksi berdasarkan tanggal, status (Lunas/Pending/Batal), dan metode pembayaran.
+* Pengaturan Restoran: Konfigurasi pajak, biaya layanan (service charge), info struk, dan logo restoran.
+
+### 🏪 Kasir Interface (client_kasir)
+
+* Login Cepat: Akses khusus yang disederhanakan untuk staf kasir.
+* Denah Meja Visual: Indikator status meja (Hijau: Kosong, Merah: Terisi).
+* Pencatatan Pesanan Cepat: Keranjang belanja responsif dengan kalkulasi otomatis.
+* Multi-Metode Pembayaran: Dukungan pembayaran Tunai, QRIS, dan Debit.
+
+### 🚀 Backend Server (server)
+
+* RESTful API: Dibangun dengan Node.js & Express.
+* Database PostgreSQL: Menggunakan Supabase.
+* Keamanan: Autentikasi kustom dengan password hashing (Bcrypt).
+* Image Hosting: Integrasi Cloudinary untuk penyimpanan aset gambar.
+
+---
+
+## 📂 Struktur Proyek
+
+```
+root/
+├── client_admin/    # Frontend: Dashboard Admin (React + Vite + Tailwind)
+├── client_kasir/    # Frontend: Antarmuka Kasir (React + Vite + Tailwind)
+└── server/          # Backend: REST API (Node.js + Express)
+```
+
+---
+
+## 🛠️ Panduan Instalasi & Menjalankan
+
+### **1. Persiapan Database (Supabase)**
+
+Untuk menggunakan database PostgreSQL di Supabase, ikuti langkah berikut:
+
+#### **Langkah 1 — Buat Project Supabase**
+
+1. Masuk ke [https://supabase.com](https://supabase.com)
+2. Login menggunakan akun GitHub atau email
+3. Klik **New Project**
+4. Isi detail project:
+
+   * **Project Name**: pos-restoran
+   * **Database Password**: buat password yang aman
+   * **Region**: pilih terdekat (misal: Southeast Asia)
+5. Klik **Create Project**
+
+#### **Langkah 2 — Ambil Credensial API**
+
+1. Buka menu **Project Settings** → **API**
+2. Salin:
+
+   * **Project URL** → ini adalah `SUPABASE_URL`
+   * **service_role key** → ini adalah `SUPABASE_SERVICE_ROLE_KEY` (⚠️ sangat sensitif)
+
+Contoh format:
+
+```
+SUPABASE_URL=https://abcdxyzcompany.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJh... (panjang)
+```
+
+#### **Langkah 3 — Membuat Tabel Database**
+
+Anda dapat membuat tabel melalui:
+
+* Menu **Table Editor** → **New Table**
+* Atau import file SQL project Anda
+
+---
+
+### **2. Konfigurasi Backend (server)**
+
+```
+cd server
+npm install
+```
+
+Buat file `.env`:
+
+```
+PORT=5001
+SUPABASE_URL=https://[PROJECT-ID].supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJh...
+
+CLOUDINARY_CLOUD_NAME=nama_cloud_anda
+CLOUDINARY_API_KEY=xxx
+CLOUDINARY_API_SECRET=xxx
+```
+
+Jalankan server:
+
+```
+npm run dev
+```
+
+---
+
+### **3. Konfigurasi Client Admin (client_admin)**
+
+```
+cd client_admin
+npm install
+```
+
+Buat file `.env`:
+
+```
+VITE_API_URL=http://localhost:5001/api
+VITE_CLOUDINARY_CLOUD_NAME=nama_cloud_anda
+VITE_CLOUDINARY_UPLOAD_PRESET=pos_preset_unsigned
+```
+
+Jalankan:
+
+```
+npm run dev
+```
+
+Akses: [http://localhost:5173](http://localhost:5173)
+
+---
+
+### **4. Konfigurasi Client Kasir (client_kasir)**
+
+```
+cd client_kasir
+npm install
+```
+
+Buat file `.env`:
+
+```
+VITE_API_URL=http://localhost:5001/api
+```
+
+Jalankan:
+
+```
+npm run dev
+```
+
+Akses: [http://localhost:5174](http://localhost:5174)
+
+---
+
+## 🔑 Akun Demo Default
+
+| Role  | Username | Password | Akses                     |
+| ----- | -------- | -------- | ------------------------- |
+| Admin | admin    | admin123 | Full Akses (client_admin) |
+| Kasir | kasir01  | kasir123 | POS Only (client_kasir)   |
+
+---
+
+## 📚 Dokumentasi API Singkat
+
+**Base URL:** [http://localhost:5001/api](http://localhost:5001/api)
+
+### Authentication
+
+* POST /auth/login — Login user
+* POST /auth/register — Register (Admin only)
+
+### Menu & Inventory
+
+* GET /menu-items
+* POST /menu-items
+* PUT /menu-items/:id
+* DELETE /menu-items/:id
+
+### Transactions
+
+* GET /orders
+* POST /orders
+
+### Reports
+
+* GET /reports/top-selling
+
+### Management
+
+* GET /users
+* GET /tables
+
+---
+
+## 🧩 Arsitektur & Monorepo
+
+Sistem POS ini menggunakan **arsitektur monorepo** yang terdiri dari 3 aplikasi utama:
+
+* **Backend API (server)** — Express + Supabase PostgreSQL
+* **Frontend Admin (client_admin)** — React + Vite + Tailwind
+* **Frontend Kasir (client_kasir)** — React + Vite + Tailwind
+
+### Prasyarat
+
+* Node.js v16+
+* npm
+* Akun Supabase (PostgreSQL)
+
+### Struktur Monorepo
 
 ```
 pos_restoran/
 ├── server/               # Backend API
 │   ├── controllers/      # Controller logika bisnis
-│   ├── routes/          # Definisi routes
-│   ├── middleware/      # Middleware (auth, validation, dll)
-│   ├── config/          # Konfigurasi database dll
-│   └── server.js        # Entry point
-├── client_admin/        # Frontend Admin
-│   ├── src/
-│   │   ├── pages/      # Halaman-halaman
-│   │   ├── components/ # Komponen React
-│   │   └── services/   # Service API calls
-│   └── ...
-└── client_kasir/        # Frontend Kasir
-    ├── src/
-    │   ├── pages/      # Halaman-halaman
-    │   ├── components/ # Komponen React
-    │   └── services/   # Service API calls
-    └── ...
+│   ├── routes/           # Definisi routes
+│   ├── middleware/       # Middleware (auth, validation, dll)
+│   ├── config/           # Konfigurasi database
+│   └── server.js         # Entry point
+├── client_admin/         # Frontend Admin
+│   └── src/
+│       ├── pages/
+│       ├── components/
+│       └── services/
+└── client_kasir/         # Frontend Kasir
+    └── src/
+        ├── pages/
+        ├── components/
+        └── services/
 ```
 
-## Instalasi
+## 🚀 Instalasi Proyek
 
-1. Clone repository ini
-2. Install dependencies untuk setiap proyek:
+1. Clone repository
+2. Install dependencies
 
-```bash
-# Install dependencies backend
-cd server
-npm install
-
-# Install dependencies admin
-cd ../client_admin
-npm install
-
-# Install dependencies kasir
-cd ../client_kasir
-npm install
+```
+cd server && npm install
+cd ../client_admin && npm install
+cd ../client_kasir && npm install
 ```
 
-## Menjalankan Aplikasi
+## ▶️ Menjalankan Aplikasi
 
-Anda bisa menjalankan aplikasi dengan dua cara:
+### **1. Menggunakan Script Helper**
 
-### 1. Menggunakan Script Helper
-
-Gunakan script `run-all.sh` yang disediakan:
-
-```bash
-# Beri izin eksekusi
+```
 chmod +x run-all.sh
-
-# Jalankan semua service
 ./run-all.sh
 ```
 
-### 2. Manual (Di Terminal Terpisah)
+### **2. Menjalankan Manual (Terminal Terpisah)**
 
-Backend API:
-```bash
+Backend:
+
+```
 cd server
 npm run dev
-# Server berjalan di http://localhost:3000
+# http://localhost:5001
 ```
 
 Frontend Admin:
-```bash
+
+```
 cd client_admin
 npm run dev
-# Admin berjalan di http://localhost:5173
+# http://localhost:5173
 ```
 
 Frontend Kasir:
-```bash
+
+```
 cd client_kasir
 npm run dev -- --port 5174
-# Kasir berjalan di http://localhost:5174
+# http://localhost:5174
 ```
 
-## URL Aplikasi
+## 🔗 URL Aplikasi
 
-- Backend API: http://localhost:3000
-  - Health check: http://localhost:3000/
-  - API test: http://localhost:3000/api/ping
-- Frontend Admin: http://localhost:5173
-- Frontend Kasir: http://localhost:5174
+* Backend: [http://localhost:5001](http://localhost:5001)
+* Admin Dashboard: [http://localhost:5173](http://localhost:5173)
+* Kasir Interface: [http://localhost:5174](http://localhost:5174)
 
-## Teknologi yang Digunakan
+## 🛠 Teknologi Utama
 
-Backend:
-- Express.js
-- MySQL2
-- CORS
-- Nodemon (development)
+### Backend
 
-Frontend Admin:
-- React (Vite)
-- Axios
-- React Router DOM
-- Recharts (untuk grafik)
-- Tailwind CSS
+* Express.js
+* Supabase PostgreSQL
+* CORS
+* Nodemon
 
-Frontend Kasir:
-- React (Vite)
-- Axios
-- React Router DOM
-- React Icons
-- Tailwind CSS
+### Frontend Admin
 
-## Development
+* React (Vite)
+* Axios
+* React Router DOM
+* Recharts
+* Tailwind CSS
 
-Setiap bagian aplikasi memiliki hot-reload untuk development yang lebih cepat:
-- Server menggunakan `nodemon`
-- Frontend menggunakan Vite dev server dengan HMR (Hot Module Replacement)
+### Frontend Kasir
 
-## Scripts yang Tersedia
+* React (Vite)
+* Axios
+* React Router DOM
+* React Icons
+* Tailwind CSS
+
+## 🧪 Scripts
 
 Backend:
-- `npm run dev`: Menjalankan server dengan nodemon
-- `npm start`: Menjalankan server untuk production
 
-Frontend (Admin & Kasir):
-- `npm run dev`: Menjalankan dev server
-- `npm run build`: Build untuk production
-- `npm run preview`: Preview build production
+* `npm run dev`
+* `npm start`
 
-## Lisensi
+Frontend:
+
+* `npm run dev`
+* `npm run build`
+* `npm run preview`
+
+## 📄 Lisensi
 
 MIT
+
+## 🤝 Kontribusi & Pengembangan
+
+Proyek ini dikembangkan sebagai bagian dari tugas implementasi sistem informasi restoran (RPL).
+
+**Pengembang Utama:** Wahyu Tri Cahya (NIM: 240202889)
+
+Dibuat dengan ❤️ menggunakan React, Node.js, & Supabase

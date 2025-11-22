@@ -19,7 +19,7 @@ const iconOptions = {
 const CategoryForm = ({ isOpen, onClose, category, onSave }) => {
     const { createCategory, updateCategory, categories } = useData();
     // Cek apakah ini mode edit berdasarkan keberadaan ID
-    const isEdit = !!category?.id; 
+    const isEdit = !!category?.categoryId; 
 
     const [formData, setFormData] = useState({ name: '', icon: 'UtensilsCrossed', sort_order: 0 });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,7 +52,7 @@ const CategoryForm = ({ isOpen, onClose, category, onSave }) => {
         setIsSubmitting(true);
         try {
             if (isEdit) {
-                await updateCategory(category.id, formData);
+                await updateCategory(category.categoryId, formData);
             } else {
                 await createCategory(formData);
             }
@@ -130,7 +130,7 @@ const MenuCategories = () => {
         if (!selectedCategory) return;
         
         // Cek jumlah item
-        const count = categoryItemCounts[selectedCategory.id] || 0;
+        const count = categoryItemCounts[selectedCategory.categoryId] || 0;
         if (count > 0) {
             // Kita pakai alert/toast di sini karena ini logic bisnis frontend
             alert(`Gagal: Masih ada ${count} menu di kategori ini.`);
@@ -139,7 +139,7 @@ const MenuCategories = () => {
         }
 
         try {
-            await deleteCategory(selectedCategory.id);
+            await deleteCategory(selectedCategory.categoryId);
         } catch (error) {
             console.error(error);
         } finally {
@@ -157,7 +157,7 @@ const MenuCategories = () => {
         }},
         { header: 'Nama', accessor: 'name' },
         { header: 'Urutan', accessor: 'sort_order', render: (val) => <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">{val}</span> },
-        { header: 'Jumlah Menu', accessor: 'id', render: (id) => {
+        { header: 'Jumlah Menu', accessor: 'categoryId', render: (id) => {
             const count = categoryItemCounts[id] || 0;
             return <span className={count > 0 ? 'text-green-600 font-bold' : 'text-gray-400'}>{count} menu</span>;
         }},
