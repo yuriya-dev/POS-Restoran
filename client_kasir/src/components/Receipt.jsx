@@ -1,28 +1,63 @@
 import React from 'react';
 import { formatCurrency } from '../utils/helpers';
+import { useSettings } from '../context/SettingsContext';
 
-// Komponen ini hanya untuk tampilan cetak, menggunakan forwardRef
 export const Receipt = React.forwardRef(({ data }, ref) => {
+    const { settings } = useSettings();
+
     if (!data) return null;
 
-    const { orderId, dailyNumber, items, subtotal, tax, total, paymentMethod, cashReceived, changeGiven, cashier, date } = data;
+    // ✅ PERBAIKAN: Destructure variable dengan nama yang benar (sesuai DB)
+    // Kita tambahkan fallback: totalAmount (dari DB) ATAU total (dari kalkulasi lokal)
+    const { 
+        orderId, 
+        dailyNumber, 
+        items, 
+        subtotal, 
+        
+        // Handle variasi nama field (DB vs Local State)
+        taxAmount, tax, 
+        totalAmount, total, 
+        
+        paymentMethod, 
+        cashReceived, 
+        changeGiven, 
+        cashier, 
+        date, 
+        serviceCharge, 
+        packagingFee 
+    } = data;
 
+    // ✅ Logika Fallback: Pilih nilai yang tersedia
+    const finalTotal = totalAmount !== undefined ? totalAmount : (total || 0);
+    const finalTax = taxAmount !== undefined ? taxAmount : (tax || 0);
+    
     return (
         <div ref={ref} className="p-4 bg-white text-black" style={{ width: '80mm', fontFamily: 'monospace', fontSize: '12px' }}>
+            
             {/* Header Struk */}
             <div className="text-center mb-2">
-                <h2 className="font-bold text-lg uppercase">Restoran Kita</h2>
-                <p className="text-[10px]">Jl. Contoh No. 123, Jakarta</p>
-                <p className="text-[10px]">Telp: 021-555-1234</p>
+                {settings?.logoUrl && (
+                    <img src={settings.logoUrl} alt="Logo" className="w-12 h-12 mx-auto mb-2 grayscale opacity-80" />
+                )}
+                <h2 className="font-bold text-lg uppercase">{settings?.restaurantName || 'Restoran'}</h2>
+                <p className="text-[10px] whitespace-pre-line">{settings?.address}</p>
+                <p className="text-[10px]">{settings?.phone}</p>
             </div>
+
+            {settings?.receiptHeader && (
+                <p className="text-center text-[10px] mb-2 border-b border-black border-dashed pb-1">
+                    {settings.receiptHeader}
+                </p>
+            )}
 
             <div className="border-b border-black border-dashed my-2"></div>
 
             {/* Info Transaksi */}
             <div className="mb-2">
                 <div className="flex justify-between">
-                    <span>Tgl: {new Date(date).toLocaleDateString()}</span>
-                    <span>Jam: {new Date(date).toLocaleTimeString()}</span>
+                    <span>{new Date(date).toLocaleDateString()}</span>
+                    <span>{new Date(date).toLocaleTimeString()}</span>
                 </div>
                 <div className="flex justify-between">
                     <span>No: #{dailyNumber || orderId}</span>
@@ -36,10 +71,10 @@ export const Receipt = React.forwardRef(({ data }, ref) => {
             <div className="space-y-1">
                 {items.map((item, index) => (
                     <div key={index}>
-                        <div className="font-bold">{item.name}</div>
+                        <div className="font-bold">{item.name || item.itemName}</div> {/* Fallback itemName jika dari DB */}
                         <div className="flex justify-between">
-                            <span>{item.quantity} x {formatCurrency(item.price)}</span>
-                            <span>{formatCurrency(item.price * item.quantity)}</span>
+                            <span>{item.quantity} x {formatCurrency(item.price || item.itemPrice)}</span>
+                            <span>{formatCurrency((item.price || item.itemPrice) * item.quantity)}</span>
                         </div>
                         {item.notes && <div className="text-[10px] italic">({item.notes})</div>}
                     </div>
@@ -48,19 +83,35 @@ export const Receipt = React.forwardRef(({ data }, ref) => {
 
             <div className="border-b border-black border-dashed my-2"></div>
 
-            {/* Totals */}
+            {/* Totals Dinamis */}
             <div className="space-y-1">
                 <div className="flex justify-between">
                     <span>Subtotal</span>
                     <span>{formatCurrency(subtotal)}</span>
                 </div>
+                
+                {serviceCharge > 0 && (
+                    <div className="flex justify-between">
+                        <span>Service ({(settings?.serviceCharge * 100).toFixed(0)}%)</span>
+                        <span>{formatCurrency(serviceCharge)}</span>
+                    </div>
+                )}
+                
+                {packagingFee > 0 && (
+                    <div className="flex justify-between">
+                        <span>Kemasan</span>
+                        <span>{formatCurrency(packagingFee)}</span>
+                    </div>
+                )}
+
                 <div className="flex justify-between">
-                    <span>Pajak (10%)</span>
-                    <span>{formatCurrency(tax)}</span>
+                    <span>Pajak ({(settings?.taxRate * 100).toFixed(0)}%)</span>
+                    <span>{formatCurrency(finalTax)}</span> {/* Gunakan finalTax */}
                 </div>
-                <div className="flex justify-between font-bold text-sm mt-1">
+                
+                <div className="flex justify-between font-bold text-sm mt-1 border-t border-black border-dashed pt-1">
                     <span>TOTAL</span>
-                    <span>{formatCurrency(total)}</span>
+                    <span>{formatCurrency(finalTotal)}</span> {/* Gunakan finalTotal */}
                 </div>
             </div>
 
@@ -70,7 +121,7 @@ export const Receipt = React.forwardRef(({ data }, ref) => {
             <div className="space-y-1">
                 <div className="flex justify-between">
                     <span className="uppercase">{paymentMethod}</span>
-                    <span>{formatCurrency(cashReceived || total)}</span>
+                    <span>{formatCurrency(cashReceived || finalTotal)}</span>
                 </div>
                 {paymentMethod === 'cash' && (
                     <div className="flex justify-between">
@@ -80,9 +131,11 @@ export const Receipt = React.forwardRef(({ data }, ref) => {
                 )}
             </div>
 
+            {/* Footer */}
             <div className="mt-4 text-center text-[10px]">
-                <p>Terima kasih atas kunjungan Anda!</p>
-                <p>WiFi: Resto_Tamu / Pass: 123456</p>
+                <p className="whitespace-pre-line">{settings?.receiptFooter}</p>
+                {settings?.wifiInfo && <p className="mt-2 font-bold">WiFi: {settings.wifiInfo}</p>}
+                {settings?.socialMedia && <p>{settings.socialMedia}</p>}
             </div>
         </div>
     );

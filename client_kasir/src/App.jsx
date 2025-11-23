@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 // Contexts
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { SettingsProvider } from './context/SettingsContext';
 
 // Pages & Components
 import Login from './pages/Login';
@@ -30,35 +31,37 @@ const ProtectedRoute = ({ children }) => {
 const App = () => {
     return (
         <AuthProvider>
-            <CartProvider>
-                <BrowserRouter>
-                    <Routes>
-                        {/* Route Public */}
-                        <Route path="/login" element={<Login />} />
+            <SettingsProvider>
+                <CartProvider>
+                    <BrowserRouter>
+                        <Routes>
+                            {/* Route Public */}
+                            <Route path="/login" element={<Login />} />
 
-                        {/* Route Protected: Semua halaman di dalam ini butuh login */}
-                        <Route element={<ProtectedRoute><KasirLayout /></ProtectedRoute>}>
-                            {/* Halaman Utama: Denah Meja */}
-                            <Route index element={<TableMap />} />
-                            
-                            {/* Halaman Order (POS) */}
-                            <Route path="/order/:tableId" element={<OrderPage />} />
-                            
-                            {/* Halaman Shift & Laporan */}
-                            <Route path="/shift" element={<ShiftDashboard />} />
+                            {/* Route Protected: Semua halaman di dalam ini butuh login */}
+                            <Route element={<ProtectedRoute><KasirLayout /></ProtectedRoute>}>
+                                {/* Halaman Utama: Denah Meja */}
+                                <Route index element={<TableMap />} />
+                                
+                                {/* Halaman Order (POS) */}
+                                <Route path="/order/:tableId" element={<OrderPage />} />
+                                
+                                {/* Halaman Shift & Laporan */}
+                                <Route path="/shift" element={<ShiftDashboard />} />
 
-                            {/* Halaman Kitchen */}
-                            <Route path="/kitchen" element={<KitchenPage />} />
+                                {/* Halaman Kitchen */}
+                                <Route path="/kitchen" element={<KitchenPage />} />
 
-                            {/* Halaman History */}
-                            <Route path="/history" element={<HistoryPage />} />
-                        </Route>
+                                {/* Halaman History */}
+                                <Route path="/history" element={<HistoryPage />} />
+                            </Route>
 
-                        {/* Catch-all Redirect */}
-                        <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
-                </BrowserRouter>
-            </CartProvider>
+                            {/* Catch-all Redirect */}
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                        </Routes>
+                    </BrowserRouter>
+                </CartProvider>
+            </SettingsProvider>
         </AuthProvider>
     );
 };

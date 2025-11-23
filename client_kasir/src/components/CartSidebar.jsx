@@ -1,23 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Trash2, Plus, Minus, ShoppingCart, CreditCard, Wallet, Banknote, ChevronRight, Printer, Check } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useSettings } from '../context/SettingsContext'; // ✅ Import Settings
 import { formatCurrency } from '../utils/helpers';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { usePDF } from 'react-to-pdf'; // ✅ Ganti import ini
+import { usePDF } from 'react-to-pdf';
 import { Receipt } from './Receipt';
 
 const CartSidebar = () => {
     const { cartItems, addToCart, decreaseQty, removeFromCart, cartTotals, clearCart, selectedTable } = useCart();
+    const { settings } = useSettings();
+    
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [cashReceived, setCashReceived] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [orderSuccessData, setOrderSuccessData] = useState(null);
     
     const navigate = useNavigate();
-
-    // ✅ Setup PDF Generator
     const { toPDF, targetRef } = usePDF({filename: `struk_order_${new Date().getTime()}.pdf`});
 
     // Hitung kembalian real-time
@@ -59,6 +60,9 @@ const CartSidebar = () => {
             
             setOrderSuccessData({
                 ...payload,
+                serviceCharge: cartTotals.serviceCharge,
+                packagingFee: cartTotals.packaging,
+                
                 orderId: res.data.orderId,
                 dailyNumber: res.data.dailyNumber,
                 date: new Date().toISOString(),
@@ -92,15 +96,14 @@ const CartSidebar = () => {
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">Transaksi Sukses!</h2>
                 <p className="text-gray-500 mb-6">Order #{orderSuccessData.dailyNumber || orderSuccessData.orderId}</p>
                 
-                {/* Preview Struk untuk PDF (Tetap disembunyikan dari layar user, tapi dirender untuk PDF) */}
+                {/* Preview Struk untuk PDF */}
                 <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
-                    {/* Pass ref dari usePDF ke komponen Receipt */}
                     <Receipt ref={targetRef} data={orderSuccessData} />
                 </div>
 
                 <div className="w-full space-y-3">
                     <button 
-                        onClick={() => toPDF()} // ✅ Panggil fungsi download PDF
+                        onClick={() => toPDF()}
                         className="w-full py-3 bg-gray-800 text-white rounded-xl font-bold flex items-center justify-center hover:bg-gray-900 transition"
                     >
                         <Printer className="w-5 h-5 mr-2" /> Cetak Struk (PDF)
@@ -219,16 +222,34 @@ const CartSidebar = () => {
                     </div>
                 )}
 
-                {/* Totals */}
-                <div className="space-y-2 mb-4 text-sm">
+                {/* Integrasi Settings */}
+                <div className="space-y-2 mb-4 text-sm border-t border-dashed pt-3 mt-3">
                     <div className="flex justify-between text-gray-500">
                         <span>Subtotal</span>
                         <span>{formatCurrency(cartTotals.subtotal)}</span>
                     </div>
+
+                    {/* Tampilkan Service Charge jika > 0 */}
+                    {cartTotals.serviceCharge > 0 && (
+                        <div className="flex justify-between text-gray-500">
+                            <span>Service ({(settings?.serviceCharge * 100).toFixed(0)}%)</span>
+                            <span>{formatCurrency(cartTotals.serviceCharge)}</span>
+                        </div>
+                    )}
+
+                    {/* Tampilkan Packaging Fee jika > 0 */}
+                    {cartTotals.packaging > 0 && (
+                        <div className="flex justify-between text-gray-500">
+                            <span>Biaya Kemasan</span>
+                            <span>{formatCurrency(cartTotals.packaging)}</span>
+                        </div>
+                    )}
+
                     <div className="flex justify-between text-gray-500">
-                        <span>Pajak (10%)</span>
+                        <span>Pajak ({(settings?.taxRate * 100).toFixed(0)}%)</span>
                         <span>{formatCurrency(cartTotals.tax)}</span>
                     </div>
+                    
                     <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-dashed">
                         <span>Total</span>
                         <span>{formatCurrency(cartTotals.total)}</span>

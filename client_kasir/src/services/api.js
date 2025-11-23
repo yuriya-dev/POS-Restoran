@@ -25,4 +25,7 @@ export const api = {
   getShiftSummary: () => API.get('/shifts/summary'),
   startShift: (data) => API.post('/shifts/start', data),
   endShift: (data) => API.post('/shifts/end', data),
+
+  // Settings
+  getSettings: () => API.get('/settings'), 
 };

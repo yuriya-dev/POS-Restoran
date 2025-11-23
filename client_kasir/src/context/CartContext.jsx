@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useMemo } from 'react';
+import { useSettings } from './SettingsContext';
 
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
+    const { settings } = useSettings();
     // State Keranjang: Array of { itemId, name, price, quantity, notes, image_url }
     const [cartItems, setCartItems] = useState([]);
     const [selectedTable, setSelectedTable] = useState(null); // Menyimpan meja yang sedang aktif
@@ -59,14 +61,24 @@ export const CartProvider = ({ children }) => {
     // Kalkulasi Total
     const cartTotals = useMemo(() => {
         const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        // Ambil taxRate dari settings nanti, sementara hardcode 10%
-        const taxRate = 0.10; 
-        const tax = subtotal * taxRate;
-        const total = subtotal + tax;
         const totalQty = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+        
+        // 1. Service Charge (Persentase dari Subtotal)
+        const serviceCharge = subtotal * (settings?.serviceCharge || 0);
+        
+        // 2. Packaging Fee (Biaya Flat, hanya jika ada item)
+        // Opsional: Anda bisa menambahkan logika jika meja = 'TakeAway' baru kena biaya ini
+        const packaging = cartItems.length > 0 ? Number(settings?.packagingFee || 0) : 0; 
 
-        return { subtotal, tax, total, totalQty };
-    }, [cartItems]);
+        // 3. Pajak (Biasanya dikenakan setelah Service Charge ditambahkan)
+        // Rumus: (Subtotal + Service) * TaxRate
+        const tax = (subtotal + serviceCharge + packaging) * (settings?.taxRate || 0); 
+        
+        // 4. Grand Total
+        const total = subtotal + serviceCharge + packaging + tax;
+
+        return { subtotal, tax, serviceCharge, packaging, total, totalQty };
+    }, [cartItems, settings]); // Dependency tambah settings
 
     const value = {
         cartItems,
