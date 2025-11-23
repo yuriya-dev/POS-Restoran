@@ -12,7 +12,7 @@ exports.getAll = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('*, dailyNumber, orderId') 
+      .select('*, items:orderitems!orderitems_orderId_fkey(*)') 
       .order('createdAt', { ascending: false });
 
     if (error) throw error;
@@ -29,7 +29,10 @@ exports.create = async (req, res) => {
 
     // 1. Cek Stok Dulu
     for (const item of items) {
+      // Ambil data menu dari DB
       const { data: menu } = await supabase.from('menuitems').select('stock').eq('itemId', item.itemId).single();
+      
+      // Jika stok di DB lebih kecil dari jumlah yang dipesan -> ERROR
       if (menu && menu.stock < item.quantity) {
         return res.status(400).json({ message: `Stok ${item.name} tidak cukup! Sisa: ${menu.stock}` });
       }

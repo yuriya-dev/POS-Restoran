@@ -1,24 +1,26 @@
 import React, { useState, useMemo } from 'react';
 import { 
     BarChart3, DollarSign, ShoppingCart, TrendingUp, Filter, Download, Award, ListOrdered, ChevronDown, 
-    ArrowUp, ArrowDown, Eye 
+    ArrowUp, ArrowDown, Eye, X, Receipt 
 } from 'lucide-react';
 import { subDays, startOfMonth, isWithinInterval, format, startOfDay, endOfDay } from 'date-fns';
 import { id } from 'date-fns/locale';
+import toast from 'react-hot-toast'; // ✅ Import Toast
 
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Table from '../components/common/Table';
 import SalesChart from '../components/reports/SalesChart'; 
 import TopSellingItems from '../components/reports/TopSellingItems'; 
-import OrderDetailModal from '../components/reports/OrderDetailModal';
+// import OrderDetailModal from '../components/reports/OrderDetailModal'; // ❌ Hapus ini karena sudah didefinisikan di bawah
 import { useData } from '../context/DataContext';
+import { api } from '../services/api'; // ✅ Import API untuk cancelOrder
 import { formatCurrency } from '../utils/helpers';
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-// Pilihan Filter Periode
+// --- OPSI FILTER & KONSTANTA ---
 const PERIOD_OPTIONS = [
     { label: 'Hari Ini', value: 'today', getRange: () => ({ start: startOfDay(new Date()), end: endOfDay(new Date()) }) },
     { label: '7 Hari Terakhir', value: '7days', getRange: () => ({ start: subDays(new Date(), 6), end: new Date() }) },
@@ -26,7 +28,6 @@ const PERIOD_OPTIONS = [
     { label: 'Kustom', value: 'custom', getRange: () => null }, 
 ];
 
-// OPSI FILTER BARU
 const STATUS_OPTIONS = [
     { value: 'all', label: 'Semua Status' },
     { value: 'paid', label: 'Lunas' },
@@ -42,7 +43,7 @@ const PAYMENT_OPTIONS = [
     { value: 'other', label: 'Lainnya' },
 ];
 
-// Fungsi Kalkulasi Metrik (tetap sama)
+// --- FUNGSI HELPER ---
 const calculateMetrics = (orders) => { 
     const getVal = (val) => parseFloat(val) || 0;
     const totalRevenue = orders.reduce((acc, order) => acc + getVal(order.totalAmount), 0);
@@ -58,34 +59,155 @@ const calculateMetrics = (orders) => {
     return { totalRevenue, totalTransactions, avgTransaction, totalCash, totalNonCash, paymentBreakdown };
 };
 
+// --- SUB-COMPONENT: MODAL DETAIL TRANSAKSI ---
+const OrderDetailModal = ({ order, onClose }) => {
+    if (!order) return null;
+
+    // Pastikan kita mengakses properti 'items' sesuai alias dari controller backend
+    const items = order.items || []; 
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                
+                {/* Header Modal */}
+                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                            <Receipt className="w-5 h-5 mr-2 text-blue-600" />
+                            Detail Transaksi
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                            #{order.dailyNumber || order.orderId} • {format(new Date(order.createdAt), 'dd MMM yyyy HH:mm', { locale: id })}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition text-gray-500">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Content Scrollable */}
+                <div className="p-6 overflow-y-auto">
+                    
+                    {/* Info Status */}
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                            <span className="text-xs text-blue-600 font-bold uppercase tracking-wider">Pelanggan / Meja</span>
+                            <p className="font-semibold text-gray-800 text-lg">{order.orderName || '-'}</p>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg border border-green-100">
+                            <span className="text-xs text-green-600 font-bold uppercase tracking-wider">Metode Bayar</span>
+                            <p className="font-semibold text-gray-800 text-lg capitalize">{order.paymentMethod}</p>
+                        </div>
+                    </div>
+
+                    {/* Tabel Item Pesanan */}
+                    <h4 className="font-bold text-gray-700 mb-3 border-b pb-2">Item Pesanan ({items.length})</h4>
+                    
+                    {items.length === 0 ? (
+                        <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-lg border border-dashed">
+                            Tidak ada data item (Mungkin data lama sebelum update struktur)
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {items.map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-start py-2 border-b border-gray-50 last:border-0">
+                                    <div className="flex items-start space-x-3">
+                                        <span className="bg-gray-100 text-gray-600 font-bold w-8 h-8 flex items-center justify-center rounded-md text-sm">
+                                            {item.quantity}x
+                                        </span>
+                                        <div>
+                                            <p className="font-medium text-gray-800">{item.itemName}</p>
+                                            {item.notes && (
+                                                <p className="text-xs text-orange-600 italic mt-0.5 bg-orange-50 px-1.5 py-0.5 rounded inline-block">
+                                                    Catatan: {item.notes}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-medium text-gray-900">{formatCurrency(item.totalPrice)}</p>
+                                        <p className="text-xs text-gray-400">@ {formatCurrency(item.itemPrice)}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Summary Pembayaran */}
+                    <div className="mt-6 space-y-2 bg-gray-50 p-4 rounded-lg">
+                        <div className="flex justify-between text-sm text-gray-600">
+                            <span>Subtotal</span>
+                            <span>{formatCurrency(order.subtotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-600">
+                            <span>Pajak (Tax)</span>
+                            <span>{formatCurrency(order.taxAmount)}</span>
+                        </div>
+                        <div className="border-t border-gray-200 my-2"></div>
+                        <div className="flex justify-between font-bold text-lg text-blue-600">
+                            <span>Total Bayar</span>
+                            <span>{formatCurrency(order.totalAmount)}</span>
+                        </div>
+                        {order.paymentMethod === 'cash' && (
+                            <div className="flex justify-between text-sm text-gray-500 mt-2 pt-2 border-t border-dashed">
+                                <span>Tunai Diterima: {formatCurrency(order.cashReceived)}</span>
+                                <span>Kembali: {formatCurrency(order.changeGiven)}</span>
+                            </div>
+                        )}
+                    </div>
+
+                </div>
+                
+                {/* Footer Modal */}
+                <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 text-right">
+                     <Button variant="secondary" onClick={onClose}>Tutup</Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- KOMPONEN UTAMA ---
 const Reports = () => {
-    const { orders, settings } = useData(); 
+    const { orders, settings, refreshData } = useData(); // Ambil refreshData untuk update setelah void
     const [selectedPeriod, setSelectedPeriod] = useState('7days');
     const [customRange, setCustomRange] = useState({ start: null, end: null });
     const [activeTab, setActiveTab] = useState('overview'); 
     
-    // STATE UNTUK FILTER TRANSAKSI
+    // STATE FILTER
     const [filterStatus, setFilterStatus] = useState('paid'); 
     const [filterPaymentMethod, setFilterPaymentMethod] = useState('all'); 
 
-    // STATE UNTUK SORTIR
-    const [sortColumn, setSortColumn] = useState('createdAt'); // Default sorting
-    const [sortDirection, setSortDirection] = useState('desc'); // Default descending (terbaru dulu)
+    // STATE SORTIR
+    const [sortColumn, setSortColumn] = useState('createdAt'); 
+    const [sortDirection, setSortDirection] = useState('desc');
 
-    // STATE UNTUK DETAIL
+    // STATE DETAIL
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
+    // --- HANDLERS ---
 
-    // Logika Pengurutan
     const handleSort = (column) => {
         if (sortColumn === column) {
-            // Balik arah jika kolom sama
             setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
         } else {
-            // Set kolom baru, defaultnya descending
             setSortColumn(column);
             setSortDirection('desc');
+        }
+    };
+
+    const handleVoid = async (orderId, e) => {
+        e.stopPropagation(); // Cegah modal detail terbuka
+        if(!window.confirm("Yakin batalkan pesanan ini? Stok akan dikembalikan.")) return;
+        try {
+            await api.cancelOrder(orderId);
+            toast.success("Transaksi dibatalkan");
+            refreshData('orders'); // Refresh data agar status berubah
+        } catch(e) { 
+            console.error(e);
+            toast.error("Gagal membatalkan transaksi"); 
         }
     };
     
@@ -108,58 +230,44 @@ const Reports = () => {
         let result = orders.filter(order => {
             const orderDate = new Date(order.createdAt); 
             
-            // Filter 1: Tanggal
             const dateMatch = isWithinInterval(orderDate, { start: dateRange.start, end: dateRange.end });
-            
-            // Filter 2: Status
             const statusMatch = filterStatus === 'all' || order.status === filterStatus;
-            
-            // Filter 3: Pembayaran
             const paymentMatch = filterPaymentMethod === 'all' || order.paymentMethod === filterPaymentMethod;
 
             return dateMatch && statusMatch && paymentMatch;
         });
 
-        // Logika Sortir
         result.sort((a, b) => {
             let valA = a[sortColumn];
             let valB = b[sortColumn];
 
-            // Konversi nilai yang mungkin angka (Order ID, Total, CreatedAt)
-            if (sortColumn === 'totalAmount' || sortColumn === 'orderId') {
+            if (['totalAmount', 'orderId', 'dailyNumber'].includes(sortColumn)) {
                 valA = parseFloat(valA) || 0;
                 valB = parseFloat(valB) || 0;
             } else if (sortColumn === 'createdAt') {
                 valA = new Date(valA).getTime();
                 valB = new Date(valB).getTime();
             } else {
-                // Untuk string, lakukan perbandingan localeCompare
                 valA = String(valA).toLowerCase();
                 valB = String(valB).toLowerCase();
             }
 
-            if (valA < valB) {
-                return sortDirection === 'asc' ? -1 : 1;
-            }
-            if (valA > valB) {
-                return sortDirection === 'asc' ? 1 : -1;
-            }
+            if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+            if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
             return 0;
         });
 
         return result;
-    }, [orders, dateRange, filterStatus, filterPaymentMethod, sortColumn, sortDirection]); // ✅ Tambah dependencies sort
+    }, [orders, dateRange, filterStatus, filterPaymentMethod, sortColumn, sortDirection]);
     
-    // 3. Hitung Metrik (tetap sama)
+    // 3. Hitung Metrik
     const metrics = useMemo(() => calculateMetrics(filteredOrders), [filteredOrders]);
 
-    // Fungsi Export Sederhana (tetap sama)
+    // Export PDF
     const handleExport = () => {
         if (filteredOrders.length === 0) return alert("Tidak ada data untuk diexport.");
 
         const doc = new jsPDF();
-        
-        // Judul PDF
         doc.setFontSize(16);
         doc.text("Laporan Penjualan", 14, 15);
         
@@ -168,13 +276,12 @@ const Reports = () => {
         doc.text(`Total Transaksi: ${filteredOrders.length}`, 14, 28);
         doc.text(`Total Omzet: ${formatCurrency(metrics.totalRevenue)}`, 14, 34);
 
-        // Buat tabel data
         const tableColumn = ["No.", "Tanggal", "Status", "Total", "Pembayaran"];
         const tableRows = [];
 
         filteredOrders.forEach((order, index) => {
             tableRows.push([
-                index + 1,
+                order.dailyNumber || (index + 1),
                 format(new Date(order.createdAt), "dd/MM/yyyy HH:mm", { locale: id }),
                 order.status,
                 formatCurrency(order.totalAmount),
@@ -190,60 +297,35 @@ const Reports = () => {
             theme: "grid"
         });
 
-        // Simpan file
         doc.save(`laporan_penjualan_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     };
 
-    // Format String Tanggal untuk API Top Selling (tetap sama)
     const startDateStr = dateRange.start ? dateRange.start.toISOString() : null;
     const endDateStr = dateRange.end ? dateRange.end.toISOString() : null;
     const taxRate = settings?.taxRate || 0.1;
 
-    // Komponen Header Kolom Sortable
+    // Component Header Sortable
     const SortableHeader = ({ header, accessor }) => {
         const isCurrentSort = sortColumn === accessor;
-        const Icon = isCurrentSort 
-            ? (sortDirection === 'asc' ? ArrowUp : ArrowDown) 
-            : ArrowUp;
-        
+        const Icon = isCurrentSort ? (sortDirection === 'asc' ? ArrowUp : ArrowDown) : ArrowUp;
         return (
-            <div 
-                className="flex items-center cursor-pointer hover:text-blue-600 transition-colors"
-                onClick={() => handleSort(accessor)}
-            >
+            <div className="flex items-center cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort(accessor)}>
                 {header}
-                {/* Tampilkan ikon hanya jika kolom bisa disortir */}
-                {['orderId', 'createdAt', 'totalAmount'].includes(accessor) && (
+                {['orderId', 'createdAt', 'totalAmount', 'dailyNumber'].includes(accessor) && (
                     <Icon className={`w-3 h-3 ml-1 ${isCurrentSort ? 'text-blue-600' : 'text-gray-400'}`} />
                 )}
             </div>
         );
     };
 
-    const handleVoid = async (orderId) => {
-        if(!window.confirm("Yakin batalkan pesanan ini? Stok akan dikembalikan.")) return;
-        try {
-            await api.cancelOrder(orderId); // Pastikan api.js admin punya ini
-            toast.success("Transaksi dibatalkan");
-            // Refresh data
-        } catch(e) { toast.error("Gagal batal"); }
-    };
-
-    // Kolom Tabel Transaksi (Menggunakan SortableHeader)
+    // Kolom Tabel
     const transactionColumns = [
         { 
             header: <SortableHeader header='No. Order' accessor='dailyNumber' />,
             accessor: 'dailyNumber', 
-            render: (dailyNum, item) => { // Akses dailyNum (kolom utama) dan item (object row)
-                // Jika dailyNum (nomor harian) null/0, gunakan orderId global sebagai fallback
+            render: (dailyNum, item) => {
                 const displayId = dailyNum || item.orderId; 
-                
-                // Render sebagai ID harian jika ada, atau ID global jika legacy
-                return (
-                    <span className={`font-mono text-xs font-semibold ${dailyNum ? 'text-blue-600' : 'text-gray-500'}`}>
-                        #{displayId}
-                    </span>
-                );
+                return <span className={`font-mono text-xs font-semibold ${dailyNum ? 'text-blue-600' : 'text-gray-500'}`}>#{displayId}</span>;
             }
         },
         { 
@@ -257,9 +339,7 @@ const Reports = () => {
             render: (status) => (
                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
                     status === 'paid' ? 'bg-green-100 text-green-800' : status === 'active' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                }`}>
-                    {status}
-                </span>
+                }`}>{status}</span>
             )
         },
         { 
@@ -273,21 +353,21 @@ const Reports = () => {
             render: (method) => (
                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
                     (method || '').toLowerCase() === 'cash' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                }`}>
-                    {method || '-'}
-                </span>
+                }`}>{method || '-'}</span>
             )
         },
         {
-            header: '',
+            header: 'Detail',
             accessor: 'actions',
             render: (_, item) => (
                 <button
-                    onClick={() => {
+                    onClick={(e) => {
+                        e.stopPropagation(); // Mencegah trigger onRowClick dua kali jika ada
                         setSelectedOrder(item);
                         setIsOrderModalOpen(true);
                     }}
                     className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 text-blue-600 transition"
+                    title="Lihat Detail"
                 >
                     <Eye className="w-4 h-4" />
                 </button>
@@ -297,7 +377,10 @@ const Reports = () => {
             header: 'Aksi',
             render: (_, row) => (
                 row.status !== 'cancelled' && (
-                    <button onClick={() => handleVoid(row.orderId)} className="text-red-600 text-xs hover:underline">
+                    <button 
+                        onClick={(e) => handleVoid(row.orderId, e)} 
+                        className="text-red-600 text-xs hover:underline font-medium"
+                    >
                         Batalkan
                     </button>
                 )
@@ -318,160 +401,113 @@ const Reports = () => {
 
     return (
         <>
-        <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-                    <BarChart3 className="w-6 h-6 mr-2 text-blue-600" /> Laporan Penjualan
-                </h1>
-                <Button variant="secondary" onClick={handleExport} icon={<Download className="w-4 h-4" />} size="sm">
-                    Export Data
-                </Button>
-            </div>
-            
-            {/* Filter Periode */}
-            <Card className="p-4 sm:p-6 bg-white shadow-sm">
-                <div className="flex flex-col lg:flex-row gap-4 items-center">
-                    <div className="flex flex-wrap gap-2 lg:w-3/4">
-                        {PERIOD_OPTIONS.map(opt => (
-                            <Button 
-                                key={opt.value} 
-                                variant={selectedPeriod === opt.value ? 'primary' : 'secondary'} 
-                                size="sm" 
-                                onClick={() => setSelectedPeriod(opt.value)}
-                            >
-                                {opt.label}
-                            </Button>
-                        ))}
-                    </div>
-                    {selectedPeriod === 'custom' && (
-                        <div className="flex gap-2 w-full lg:w-auto">
-                            <input type="date" className="border p-2 rounded text-sm" onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))} />
-                            <span className="self-center">-</span>
-                            <input type="date" className="border p-2 rounded text-sm" onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))} />
+            <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+                        <BarChart3 className="w-6 h-6 mr-2 text-blue-600" /> Laporan Penjualan
+                    </h1>
+                    <Button variant="secondary" onClick={handleExport} icon={<Download className="w-4 h-4" />} size="sm">
+                        Export PDF
+                    </Button>
+                </div>
+                
+                {/* Filter Periode */}
+                <Card className="p-4 sm:p-6 bg-white shadow-sm">
+                    <div className="flex flex-col lg:flex-row gap-4 items-center">
+                        <div className="flex flex-wrap gap-2 lg:w-3/4">
+                            {PERIOD_OPTIONS.map(opt => (
+                                <Button 
+                                    key={opt.value} 
+                                    variant={selectedPeriod === opt.value ? 'primary' : 'secondary'} 
+                                    size="sm" 
+                                    onClick={() => setSelectedPeriod(opt.value)}
+                                >
+                                    {opt.label}
+                                </Button>
+                            ))}
                         </div>
-                    )}
-                </div>
-            </Card>
-
-            {/* Overview Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card 
-                    title="Total Omzet" 
-                    value={formatCurrency(metrics.totalRevenue)} 
-                    icon={DollarSign} 
-                    color="text-green-600" 
-                    subText={`${formatCurrency(metrics.totalCash)} (Tunai)`}
-                />
-                <Card 
-                    title="Jumlah Transaksi" 
-                    value={metrics.totalTransactions} 
-                    icon={ShoppingCart} 
-                    color="text-blue-600"
-                    subText={`Rata-rata: ${formatCurrency(metrics.avgTransaction)}`}
-                />
-                 <Card 
-                    title="Non-Tunai" 
-                    value={formatCurrency(metrics.totalNonCash)} 
-                    icon={TrendingUp} 
-                    color="text-indigo-600"
-                    subText={`Metode: ${Object.keys(metrics.paymentBreakdown).join(', ')}`}
-                />
-                <Card 
-                    title="Estimasi Pajak" 
-                    value={formatCurrency(metrics.totalRevenue * taxRate)} 
-                    icon={DollarSign} 
-                    color="text-gray-500"
-                    subText={`Tarif: ${(taxRate * 100).toFixed(0)}%`}
-                />
-            </div>
-
-            {/* Tabs Content */}
-            <Card className="p-0 overflow-hidden">
-                <div className="border-b border-gray-200 bg-gray-50">
-                    <div className="flex space-x-4 px-6 pt-4">
-                        <TabButton name="Overview & Transaksi" icon={ListOrdered} isActive={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
-                        <TabButton name="Item Terlaris" icon={Award} isActive={activeTab === 'top-items'} onClick={() => setActiveTab('top-items')} />
-                    </div>
-                </div>
-
-                <div className="p-6">
-                    {activeTab === 'overview' && (
-                        <div className="space-y-8">
-                            {/* Grafik */}
-                            <div>
-                                <h3 className="text-lg font-semibold mb-4 text-gray-800">Grafik Penjualan</h3>
-                                <div className="h-64 bg-gray-50 rounded-lg border border-gray-100 p-4">
-                                    <SalesChart orders={filteredOrders} period={selectedPeriod} />
-                                </div>
+                        {selectedPeriod === 'custom' && (
+                            <div className="flex gap-2 w-full lg:w-auto">
+                                <input type="date" className="border p-2 rounded text-sm" onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))} />
+                                <span className="self-center">-</span>
+                                <input type="date" className="border p-2 rounded text-sm" onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))} />
                             </div>
+                        )}
+                    </div>
+                </Card>
 
-                            {/* Tabel */}
-                            <div>
-                                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center justify-between">
-                                    <span>Riwayat Transaksi</span>
-                                    <span className="text-sm font-normal text-gray-500">Total: {filteredOrders.length}</span>
-                                </h3>
-                                
-                                {/* BAR FILTER TRANSAKSI */}
-                                <div className="flex space-x-3 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                    {/* Filter Status */}
-                                    <div className="relative flex-1">
-                                        <select
-                                            value={filterStatus}
-                                            onChange={(e) => setFilterStatus(e.target.value)}
-                                            className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-sm appearance-none cursor-pointer"
-                                        >
-                                            {STATUS_OPTIONS.map(opt => (
-                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-                                    </div>
+                {/* Metrics */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card title="Total Omzet" value={formatCurrency(metrics.totalRevenue)} icon={DollarSign} color="text-green-600" subText={`${formatCurrency(metrics.totalCash)} (Tunai)`} />
+                    <Card title="Jumlah Transaksi" value={metrics.totalTransactions} icon={ShoppingCart} color="text-blue-600" subText={`Rata-rata: ${formatCurrency(metrics.avgTransaction)}`} />
+                    <Card title="Non-Tunai" value={formatCurrency(metrics.totalNonCash)} icon={TrendingUp} color="text-indigo-600" subText={`Metode: ${Object.keys(metrics.paymentBreakdown).join(', ')}`} />
+                    <Card title="Estimasi Pajak" value={formatCurrency(metrics.totalRevenue * taxRate)} icon={DollarSign} color="text-gray-500" subText={`Tarif: ${(taxRate * 100).toFixed(0)}%`} />
+                </div>
 
-                                    {/* Filter Pembayaran */}
-                                    <div className="relative flex-1">
-                                        <select
-                                            value={filterPaymentMethod}
-                                            onChange={(e) => setFilterPaymentMethod(e.target.value)}
-                                            className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-sm appearance-none cursor-pointer"
-                                        >
-                                            {PAYMENT_OPTIONS.map(opt => (
-                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                {/* Content */}
+                <Card className="p-0 overflow-hidden">
+                    <div className="border-b border-gray-200 bg-gray-50">
+                        <div className="flex space-x-4 px-6 pt-4">
+                            <TabButton name="Overview & Transaksi" icon={ListOrdered} isActive={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
+                            <TabButton name="Item Terlaris" icon={Award} isActive={activeTab === 'top-items'} onClick={() => setActiveTab('top-items')} />
+                        </div>
+                    </div>
+
+                    <div className="p-6">
+                        {activeTab === 'overview' && (
+                            <div className="space-y-8">
+                                <div>
+                                    <h3 className="text-lg font-semibold mb-4 text-gray-800">Grafik Penjualan</h3>
+                                    <div className="h-64 bg-gray-50 rounded-lg border border-gray-100 p-4">
+                                        <SalesChart orders={filteredOrders} period={selectedPeriod} />
                                     </div>
                                 </div>
-                                
-                                <Table 
-                                    columns={transactionColumns} 
-                                    data={filteredOrders}
-                                    onRowClick={(row) => setSelectedOrder(row)} 
-                                    emptyMessage="Tidak ada data transaksi untuk periode ini." 
-                                />
+
+                                <div>
+                                    <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center justify-between">
+                                        <span>Riwayat Transaksi</span>
+                                        <span className="text-sm font-normal text-gray-500">Total: {filteredOrders.length}</span>
+                                    </h3>
+                                    
+                                    <div className="flex space-x-3 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                        <div className="relative flex-1">
+                                            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-sm appearance-none cursor-pointer">
+                                                {STATUS_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                                            </select>
+                                            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                                        </div>
+                                        <div className="relative flex-1">
+                                            <select value={filterPaymentMethod} onChange={(e) => setFilterPaymentMethod(e.target.value)} className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-sm appearance-none cursor-pointer">
+                                                {PAYMENT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                                            </select>
+                                            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                    
+                                    <Table 
+                                        columns={transactionColumns} 
+                                        data={filteredOrders} 
+                                        onRowClick={(row) => { setSelectedOrder(row); setIsOrderModalOpen(true); }} 
+                                        emptyMessage="Tidak ada data transaksi untuk periode ini." 
+                                    />
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {activeTab === 'top-items' && (
-                        <TopSellingItems 
-                            startDate={startDateStr} 
-                            endDate={endDateStr} 
-                            selectedPeriod={PERIOD_OPTIONS.find(p => p.value === selectedPeriod)?.label} 
-                        />
-                    )}
-                </div>
-            </Card>
-        </div>
+                        {activeTab === 'top-items' && (
+                            <TopSellingItems startDate={startDateStr} endDate={endDateStr} selectedPeriod={PERIOD_OPTIONS.find(p => p.value === selectedPeriod)?.label} />
+                        )}
+                    </div>
+                </Card>
+            </div>
 
-        {isOrderModalOpen && (
-        <OrderDetailModal
-            order={selectedOrder}
-            onClose={() => setSelectedOrder(null)}
-        />
-        )}
+            {isOrderModalOpen && (
+                <OrderDetailModal
+                    order={selectedOrder}
+                    onClose={() => setIsOrderModalOpen(false)}
+                />
+            )}
         </>
-
     );
 };
 

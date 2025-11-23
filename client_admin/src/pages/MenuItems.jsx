@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Utensils, Plus, Edit, Trash2, Search, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Utensils, Plus, Edit, Trash2, Search, CheckCircle, XCircle, Package } from 'lucide-react';
 import toast from 'react-hot-toast'; // ✅ Import Toast
 
 import Card from '../components/common/Card';
@@ -138,6 +138,16 @@ const MenuItems = () => {
             header: 'Harga', 
             accessor: 'price', 
             render: (val) => <span className="font-mono">{formatCurrency(val)}</span>
+        },
+        { 
+            header: 'Stok', 
+            accessor: 'stock', 
+            render: (val) => (
+                <div className={`flex items-center font-bold ${val < 10 ? 'text-red-600' : 'text-gray-700'}`}>
+                    <Package className="w-4 h-4 mr-1 text-gray-400" />
+                    {val !== undefined ? val : 0}
+                </div>
+            )
         },
         { 
             header: 'Status', 

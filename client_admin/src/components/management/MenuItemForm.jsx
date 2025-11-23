@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Image as ImageIcon, UploadCloud, Loader2 } from 'lucide-react';
+import { DollarSign, Image as ImageIcon, UploadCloud, Loader2, Package } from 'lucide-react';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
 import { useData } from '../../context/DataContext';
@@ -9,14 +9,14 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
     const { categories, createMenuItem, updateMenuItem } = useData();
     const isEdit = !!item;
 
-    // State Form
+    // State Form (Tambahkan 'stock')
     const [formData, setFormData] = useState({
         name: '',
         price: '',
         category: '', 
         image_url: '',
         isAvailable: true,
-        stock: 100,
+        stock: 100 // Default stok 100
     });
 
     const [imageFile, setImageFile] = useState(null);
@@ -35,18 +35,17 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                     category: item.category || (categories[0]?.categoryId || ''),
                     image_url: item.image_url || '',
                     isAvailable: item.isAvailable ?? true,
-                    stock: item.stock || 100,
+                    stock: item.stock ?? 100 // ✅ Load stok lama
                 });
             } else {
                 // Mode Tambah Baru
                 setFormData({
                     name: '',
                     price: '',
-                    // ✅ PERBAIKAN: Gunakan categoryId
                     category: categories[0]?.categoryId || '',
                     image_url: '',
                     isAvailable: true,
-                    stock: 100,
+                    stock: 100 // ✅ Default stok baru
                 });
             }
             setImageFile(null);
@@ -58,7 +57,7 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({ 
             ...prev, 
-            [name]: type === 'checkbox' ? checked : (name === 'price' ? parseFloat(value) || '' : value) 
+            [name]: type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) || 0 : value) 
         }));
     };
 
@@ -104,7 +103,8 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
             const payload = {
                 ...formData,
                 image_url: finalImageUrl,
-                category: Number(formData.category) 
+                category: Number(formData.category),
+                stock: Number(formData.stock) // ✅ Pastikan kirim stok
             };
 
             if (isEdit) {
@@ -185,7 +185,6 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                             className="w-full border border-gray-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-blue-500"
                             required
                         >
-                            {/* ✅ PERBAIKAN LOOPING KATEGORI */}
                             {categories.map(cat => (
                                 <option key={cat.categoryId} value={cat.categoryId}>{cat.name}</option>
                             ))}
@@ -211,33 +210,45 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                             />
                         </div>
                     </div>
-
-                    {/* Input Stok */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Stok Harian</label>
-                        <input
-                            name="stock"
-                            type="number"
-                            min="0"
-                            value={formData.stock}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
                 </div>
-                
-                <div className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <input
-                        id="isAvailable"
-                        name="isAvailable"
-                        type="checkbox"
-                        checked={formData.isAvailable}
-                        onChange={handleChange}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded"
-                    />
-                    <label htmlFor="isAvailable" className="ml-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
-                        Menu Tersedia (Bisa Dipesan)
-                    </label>
+
+                {/* ✅ INPUT STOK (BARU) */}
+                <div className="grid grid-cols-2 gap-4">
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Stok Harian</label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Package className="w-4 h-4 text-gray-400" />
+                            </div>
+                            <input
+                                name="stock"
+                                type="number"
+                                min="0"
+                                value={formData.stock}
+                                onChange={handleChange}
+                                className="w-full border border-gray-300 rounded-lg p-2.5 pl-10 focus:ring-2 focus:ring-blue-500"
+                                placeholder="100"
+                            />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Jumlah porsi tersedia.</p>
+                    </div>
+                    
+                    {/* Status Ketersediaan (Checkbox) */}
+                    <div className="flex items-center pt-6">
+                        <div className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200 w-full">
+                            <input
+                                id="isAvailable"
+                                name="isAvailable"
+                                type="checkbox"
+                                checked={formData.isAvailable}
+                                onChange={handleChange}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded"
+                            />
+                            <label htmlFor="isAvailable" className="ml-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
+                                Menu Aktif
+                            </label>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="pt-2 flex justify-end space-x-3 border-t border-gray-100 mt-4">
