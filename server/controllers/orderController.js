@@ -1,13 +1,12 @@
 const supabase = require('../config/supabase');
 
-// Helper untuk mendapatkan waktu awal hari ini (00:00:00) dalam format ISO string
 const getStartOfDayISO = () => {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d.toISOString();
 };
 
-// --- GET All Orders (Untuk Dashboard & Laporan) ---
+// --- GET All Orders ---
 exports.getAll = async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -29,12 +28,14 @@ exports.create = async (req, res) => {
 
     // 1. Cek Stok Dulu
     for (const item of items) {
-      // Ambil data menu dari DB
       const { data: menu } = await supabase.from('menuitems').select('stock').eq('itemId', item.itemId).single();
       
-      // Jika stok di DB lebih kecil dari jumlah yang dipesan -> ERROR
-      if (menu && menu.stock < item.quantity) {
-        return res.status(400).json({ message: `Stok ${item.name} tidak cukup! Sisa: ${menu.stock}` });
+      const currentStock = Number(menu?.stock || 0);
+      const qtyNeeded = Number(item.quantity);
+
+      // Jika stok kurang
+      if (menu && currentStock < qtyNeeded) {
+        return res.status(400).json({ message: `Stok habis! Sisa: ${currentStock}` });
       }
     }
 
@@ -50,7 +51,7 @@ exports.create = async (req, res) => {
         
     const newDailyNumber = (maxOrder ? maxOrder.dailyNumber : 0) + 1;
     
-    // 3. Insert Header
+    // 3. Insert Header Order
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert([{ ...orderData, table_id, dailyNumber: newDailyNumber }])
@@ -59,7 +60,7 @@ exports.create = async (req, res) => {
 
     if (orderError) throw orderError;
 
-    // 4. Insert Items & KURANGI STOK
+    // 4. Insert Items
     const orderItems = items.map(item => ({
       orderId: order.orderId,
       itemId: item.itemId,
@@ -73,15 +74,30 @@ exports.create = async (req, res) => {
     const { error: itemsError } = await supabase.from('orderitems').insert(orderItems);
     if (itemsError) throw itemsError;
 
-    // 5. Update Stok Menu (Looping update)
+    // ✅ 5. UPDATE STOK MENU (PERBAIKAN: MENGGUNAKAN LOGIKA MANUAL)
+    // Kita tidak pakai RPC agar lebih stabil tanpa setup SQL tambahan
     for (const item of items) {
-       await supabase.rpc('decrement_stock', { x: item.quantity, row_id: item.itemId });
-       // Note: Jika RPC belum dibuat, gunakan update biasa:
-       // const { data: current } = await supabase.from('menuitems').select('stock').eq('itemId', item.itemId).single();
-       // await supabase.from('menuitems').update({ stock: current.stock - item.quantity }).eq('itemId', item.itemId);
+       // A. Ambil stok saat ini
+       const { data: current } = await supabase
+          .from('menuitems')
+          .select('stock')
+          .eq('itemId', item.itemId)
+          .single();
+       
+       if (current) {
+           const oldStock = Number(current.stock);
+           const qty = Number(item.quantity);
+           const newStock = oldStock - qty;
+
+           // B. Update dengan stok baru
+           await supabase
+              .from('menuitems')
+              .update({ stock: newStock })
+              .eq('itemId', item.itemId);
+       }
     }
 
-    // 6. OTOMATISASI MEJA: Set status jadi 'occupied'
+    // 6. Otomatisasi Meja
     if (table_id) {
         await supabase.from('dining_tables').update({ status: 'occupied' }).eq('table_id', table_id);
     }
@@ -98,15 +114,12 @@ exports.create = async (req, res) => {
   }
 };
 
-// --- BATALKAN ORDER ---
+// --- CANCEL ORDER (Kembalikan Stok) ---
 exports.cancelOrder = async (req, res) => {
     try {
         const { id } = req.params;
-
-        // 1. Ambil detail item untuk kembalikan stok
         const { data: items } = await supabase.from('orderitems').select('itemId, quantity').eq('orderId', id);
 
-        // 2. Update Status Order
         const { error } = await supabase
             .from('orders')
             .update({ status: 'cancelled' })
@@ -114,12 +127,18 @@ exports.cancelOrder = async (req, res) => {
         
         if (error) throw error;
 
-        // 3. KEMBALIKAN STOK (Restock)
+        // ✅ KEMBALIKAN STOK MANUAL
         if (items) {
             for (const item of items) {
-                // Manual increment
-                 const { data: current } = await supabase.from('menuitems').select('stock').eq('itemId', item.itemId).single();
-                 await supabase.from('menuitems').update({ stock: current.stock + item.quantity }).eq('itemId', item.itemId);
+                const { data: current } = await supabase.from('menuitems').select('stock').eq('itemId', item.itemId).single();
+                
+                if (current) {
+                    const newStock = Number(current.stock) + Number(item.quantity);
+                    await supabase
+                        .from('menuitems')
+                        .update({ stock: newStock })
+                        .eq('itemId', item.itemId);
+                }
             }
         }
 
@@ -129,22 +148,20 @@ exports.cancelOrder = async (req, res) => {
     }
 };
 
-// 4. GET Pesanan Dapur (Yang belum selesai / completedAt IS NULL)
+// ... getKitchenOrders & completeOrder tetap sama (tidak perlu diubah) ...
 exports.getKitchenOrders = async (req, res) => {
   try {
-    // Ambil order hari ini yang statusnya tidak cancelled DAN belum selesai
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-
+    const today = new Date().toISOString().split('T')[0];
     const { data, error } = await supabase
       .from('orders')
       .select(`
         orderId, dailyNumber, orderName, createdAt, status, table_id,
-        items:orderitems ( itemName, quantity, notes )
+        items:orderitems!orderitems_orderId_fkey ( itemName, quantity, notes )
       `)
       .gte('createdAt', today)
       .neq('status', 'cancelled')
-      .is('completedAt', null) // Filter: Hanya yang belum selesai
-      .order('createdAt', { ascending: true }); // Yang lama di atas (FIFO)
+      .is('completedAt', null)
+      .order('createdAt', { ascending: true });
 
     if (error) throw error;
     res.json({ data });
@@ -153,18 +170,14 @@ exports.getKitchenOrders = async (req, res) => {
   }
 };
 
-// 5. MARK ORDER AS COMPLETED (Selesai Masak/Saji)
 exports.completeOrder = async (req, res) => {
   try {
     const { id } = req.params;
-
     const { data, error } = await supabase
       .from('orders')
       .update({ completedAt: new Date().toISOString() })
       .eq('orderId', id)
-      .select()
-      .single();
-
+      .select().single();
     if (error) throw error;
     res.json({ success: true, data });
   } catch (err) {

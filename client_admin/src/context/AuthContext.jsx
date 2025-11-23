@@ -25,15 +25,25 @@ export const AuthProvider = ({ children }) => {
             const response = await api.login({ username, password });
             
             if (response.data.success) {
-                setUser(response.data.user);
-                localStorage.setItem('user', JSON.stringify(response.data.user));
+                const userData = response.data.user;
+
+                // ✅ SECURITY FIX: Cek Role
+                // Jika user yang mencoba login bukan admin, tolak!
+                if (userData.role !== 'admin') {
+                    throw new Error('Akses Ditolak: Akun ini bukan akun Admin.');
+                }
+
+                setUser(userData);
+                localStorage.setItem('user', JSON.stringify(userData));
                 return response.data;
             }
             
             throw new Error('Login gagal');
         } catch (error) {
             console.error('Login error:', error);
-            throw error;
+            // Pastikan error yang dilempar adalah string pesan
+            const msg = error.response?.data?.message || error.message || 'Terjadi kesalahan saat login';
+            throw new Error(msg);
         }
     };
 

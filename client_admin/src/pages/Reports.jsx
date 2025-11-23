@@ -5,16 +5,16 @@ import {
 } from 'lucide-react';
 import { subDays, startOfMonth, isWithinInterval, format, startOfDay, endOfDay } from 'date-fns';
 import { id } from 'date-fns/locale';
-import toast from 'react-hot-toast'; // ✅ Import Toast
+import toast from 'react-hot-toast';
 
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Table from '../components/common/Table';
 import SalesChart from '../components/reports/SalesChart'; 
 import TopSellingItems from '../components/reports/TopSellingItems'; 
-// import OrderDetailModal from '../components/reports/OrderDetailModal'; // ❌ Hapus ini karena sudah didefinisikan di bawah
+import ConfirmModal from '../components/common/ConfirmModal'; // ✅ Import ConfirmModal
 import { useData } from '../context/DataContext';
-import { api } from '../services/api'; // ✅ Import API untuk cancelOrder
+import { api } from '../services/api';
 import { formatCurrency } from '../utils/helpers';
 
 import jsPDF from "jspdf";
@@ -62,15 +62,11 @@ const calculateMetrics = (orders) => {
 // --- SUB-COMPONENT: MODAL DETAIL TRANSAKSI ---
 const OrderDetailModal = ({ order, onClose }) => {
     if (!order) return null;
-
-    // Pastikan kita mengakses properti 'items' sesuai alias dari controller backend
     const items = order.items || []; 
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                
-                {/* Header Modal */}
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 flex items-center">
@@ -86,10 +82,7 @@ const OrderDetailModal = ({ order, onClose }) => {
                     </button>
                 </div>
 
-                {/* Content Scrollable */}
                 <div className="p-6 overflow-y-auto">
-                    
-                    {/* Info Status */}
                     <div className="grid grid-cols-2 gap-4 mb-6">
                         <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                             <span className="text-xs text-blue-600 font-bold uppercase tracking-wider">Pelanggan / Meja</span>
@@ -101,12 +94,11 @@ const OrderDetailModal = ({ order, onClose }) => {
                         </div>
                     </div>
 
-                    {/* Tabel Item Pesanan */}
                     <h4 className="font-bold text-gray-700 mb-3 border-b pb-2">Item Pesanan ({items.length})</h4>
                     
                     {items.length === 0 ? (
                         <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-lg border border-dashed">
-                            Tidak ada data item (Mungkin data lama sebelum update struktur)
+                            Tidak ada data item
                         </div>
                     ) : (
                         <div className="space-y-3">
@@ -134,7 +126,6 @@ const OrderDetailModal = ({ order, onClose }) => {
                         </div>
                     )}
 
-                    {/* Summary Pembayaran */}
                     <div className="mt-6 space-y-2 bg-gray-50 p-4 rounded-lg">
                         <div className="flex justify-between text-sm text-gray-600">
                             <span>Subtotal</span>
@@ -149,17 +140,9 @@ const OrderDetailModal = ({ order, onClose }) => {
                             <span>Total Bayar</span>
                             <span>{formatCurrency(order.totalAmount)}</span>
                         </div>
-                        {order.paymentMethod === 'cash' && (
-                            <div className="flex justify-between text-sm text-gray-500 mt-2 pt-2 border-t border-dashed">
-                                <span>Tunai Diterima: {formatCurrency(order.cashReceived)}</span>
-                                <span>Kembali: {formatCurrency(order.changeGiven)}</span>
-                            </div>
-                        )}
                     </div>
-
                 </div>
                 
-                {/* Footer Modal */}
                 <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 text-right">
                      <Button variant="secondary" onClick={onClose}>Tutup</Button>
                 </div>
@@ -170,7 +153,7 @@ const OrderDetailModal = ({ order, onClose }) => {
 
 // --- KOMPONEN UTAMA ---
 const Reports = () => {
-    const { orders, settings, refreshData } = useData(); // Ambil refreshData untuk update setelah void
+    const { orders, settings, refreshData } = useData(); 
     const [selectedPeriod, setSelectedPeriod] = useState('7days');
     const [customRange, setCustomRange] = useState({ start: null, end: null });
     const [activeTab, setActiveTab] = useState('overview'); 
@@ -184,8 +167,12 @@ const Reports = () => {
     const [sortDirection, setSortDirection] = useState('desc');
 
     // STATE DETAIL
-    const [selectedOrder, setSelectedOrder] = useState(null);
-    const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+    const [viewOrder, setViewOrder] = useState(null);
+
+    // ✅ STATE VOID (PEMBATALAN)
+    const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
+    const [orderToVoid, setOrderToVoid] = useState(null);
+    const [isVoiding, setIsVoiding] = useState(false);
 
     // --- HANDLERS ---
 
@@ -198,16 +185,32 @@ const Reports = () => {
         }
     };
 
-    const handleVoid = async (orderId, e) => {
-        e.stopPropagation(); // Cegah modal detail terbuka
-        if(!window.confirm("Yakin batalkan pesanan ini? Stok akan dikembalikan.")) return;
+    // Handler Buka Modal Void
+    const openVoidModal = (order, e) => {
+        e.stopPropagation();
+        setOrderToVoid(order);
+        setIsVoidModalOpen(true);
+    };
+
+    // Handler Eksekusi Void
+    const confirmVoid = async () => {
+        if (!orderToVoid) return;
+        
+        setIsVoiding(true);
         try {
-            await api.cancelOrder(orderId);
-            toast.success("Transaksi dibatalkan");
-            refreshData('orders'); // Refresh data agar status berubah
-        } catch(e) { 
-            console.error(e);
-            toast.error("Gagal membatalkan transaksi"); 
+            // Panggil API Cancel
+            await api.cancelOrder(orderToVoid.orderId);
+            toast.success("Transaksi berhasil dibatalkan & Stok dikembalikan.");
+            
+            // Refresh data agar status berubah jadi 'cancelled'
+            await refreshData('orders'); 
+        } catch (err) {
+            console.error(err);
+            toast.error("Gagal membatalkan transaksi.");
+        } finally {
+            setIsVoiding(false);
+            setIsVoidModalOpen(false);
+            setOrderToVoid(null);
         }
     };
     
@@ -304,7 +307,6 @@ const Reports = () => {
     const endDateStr = dateRange.end ? dateRange.end.toISOString() : null;
     const taxRate = settings?.taxRate || 0.1;
 
-    // Component Header Sortable
     const SortableHeader = ({ header, accessor }) => {
         const isCurrentSort = sortColumn === accessor;
         const Icon = isCurrentSort ? (sortDirection === 'asc' ? ArrowUp : ArrowDown) : ArrowUp;
@@ -321,7 +323,7 @@ const Reports = () => {
     // Kolom Tabel
     const transactionColumns = [
         { 
-            header: <SortableHeader header='No. Order' accessor='dailyNumber' />,
+            header: <SortableHeader header='No.' accessor='dailyNumber' />,
             accessor: 'dailyNumber', 
             render: (dailyNum, item) => {
                 const displayId = dailyNum || item.orderId; 
@@ -337,34 +339,21 @@ const Reports = () => {
             header: 'Status', 
             accessor: 'status', 
             render: (status) => (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                     status === 'paid' ? 'bg-green-100 text-green-800' : status === 'active' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
                 }`}>{status}</span>
             )
         },
-        { 
-            header: <SortableHeader header='Total' accessor='totalAmount' />, 
-            accessor: 'totalAmount', 
-            render: formatCurrency 
-        },
-        { 
-            header: 'Metode', 
-            accessor: 'paymentMethod', 
-            render: (method) => (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
-                    (method || '').toLowerCase() === 'cash' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                }`}>{method || '-'}</span>
-            )
-        },
+        { header: <SortableHeader header='Total' accessor='totalAmount' />, accessor: 'totalAmount', render: formatCurrency },
+        { header: 'Metode', accessor: 'paymentMethod', render: (m) => <span className="capitalize">{m}</span> },
         {
             header: 'Detail',
             accessor: 'actions',
             render: (_, item) => (
                 <button
                     onClick={(e) => {
-                        e.stopPropagation(); // Mencegah trigger onRowClick dua kali jika ada
-                        setSelectedOrder(item);
-                        setIsOrderModalOpen(true);
+                        e.stopPropagation();
+                        setViewOrder(item);
                     }}
                     className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 text-blue-600 transition"
                     title="Lihat Detail"
@@ -378,8 +367,8 @@ const Reports = () => {
             render: (_, row) => (
                 row.status !== 'cancelled' && (
                     <button 
-                        onClick={(e) => handleVoid(row.orderId, e)} 
-                        className="text-red-600 text-xs hover:underline font-medium"
+                        onClick={(e) => openVoidModal(row, e)} // ✅ Klik tombol ini membuka modal
+                        className="text-red-600 text-xs hover:underline font-medium bg-red-50 px-2 py-1 rounded hover:bg-red-100 transition"
                     >
                         Batalkan
                     </button>
@@ -389,13 +378,8 @@ const Reports = () => {
     ];
     
     const TabButton = ({ name, icon: Icon, isActive, onClick }) => (
-        <button
-            onClick={onClick}
-            className={`flex items-center px-4 py-2 text-base font-medium transition-colors duration-200 border-b-2 
-                        ${isActive ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-        >
-            <Icon className="w-5 h-5 mr-2" />
-            {name}
+        <button onClick={onClick} className={`flex items-center px-4 py-2 text-base font-medium transition-colors duration-200 border-b-2 ${isActive ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            <Icon className="w-5 h-5 mr-2" /> {name}
         </button>
     );
 
@@ -416,14 +400,7 @@ const Reports = () => {
                     <div className="flex flex-col lg:flex-row gap-4 items-center">
                         <div className="flex flex-wrap gap-2 lg:w-3/4">
                             {PERIOD_OPTIONS.map(opt => (
-                                <Button 
-                                    key={opt.value} 
-                                    variant={selectedPeriod === opt.value ? 'primary' : 'secondary'} 
-                                    size="sm" 
-                                    onClick={() => setSelectedPeriod(opt.value)}
-                                >
-                                    {opt.label}
-                                </Button>
+                                <Button key={opt.value} variant={selectedPeriod === opt.value ? 'primary' : 'secondary'} size="sm" onClick={() => setSelectedPeriod(opt.value)}>{opt.label}</Button>
                             ))}
                         </div>
                         {selectedPeriod === 'custom' && (
@@ -456,6 +433,7 @@ const Reports = () => {
                     <div className="p-6">
                         {activeTab === 'overview' && (
                             <div className="space-y-8">
+                                {/* Grafik */}
                                 <div>
                                     <h3 className="text-lg font-semibold mb-4 text-gray-800">Grafik Penjualan</h3>
                                     <div className="h-64 bg-gray-50 rounded-lg border border-gray-100 p-4">
@@ -463,6 +441,7 @@ const Reports = () => {
                                     </div>
                                 </div>
 
+                                {/* Tabel */}
                                 <div>
                                     <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center justify-between">
                                         <span>Riwayat Transaksi</span>
@@ -487,7 +466,7 @@ const Reports = () => {
                                     <Table 
                                         columns={transactionColumns} 
                                         data={filteredOrders} 
-                                        onRowClick={(row) => { setSelectedOrder(row); setIsOrderModalOpen(true); }} 
+                                        onRowClick={(row) => { setViewOrder(row); }} 
                                         emptyMessage="Tidak ada data transaksi untuk periode ini." 
                                     />
                                 </div>
@@ -501,12 +480,25 @@ const Reports = () => {
                 </Card>
             </div>
 
-            {isOrderModalOpen && (
+            {/* Modal Detail Transaksi */}
+            {viewOrder && (
                 <OrderDetailModal
-                    order={selectedOrder}
-                    onClose={() => setIsOrderModalOpen(false)}
+                    order={viewOrder}
+                    onClose={() => setViewOrder(null)}
                 />
             )}
+
+            {/* ✅ MODAL KONFIRMASI BATALKAN ORDER */}
+            <ConfirmModal
+                isOpen={isVoidModalOpen}
+                onClose={() => !isVoiding && setIsVoidModalOpen(false)}
+                onConfirm={confirmVoid}
+                title="Batalkan Transaksi"
+                message={`Apakah Anda yakin ingin membatalkan Order #${orderToVoid?.dailyNumber || orderToVoid?.orderId}? Tindakan ini akan mengubah status menjadi "Cancelled", mengembalikan stok, dan mengurangi omzet.`}
+                confirmText={isVoiding ? 'Memproses...' : 'Ya, Batalkan'}
+                confirmButtonClass="bg-red-600 hover:bg-red-700"
+                disabled={isVoiding}
+            />
         </>
     );
 };
