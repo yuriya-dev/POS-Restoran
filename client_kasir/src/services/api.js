@@ -13,6 +13,10 @@ export const api = {
   getTables: () => API.get('/tables'),
   createOrder: (data) => API.post('/orders', data),
   
+  // Dapur
+  getKitchenOrders: () => API.get('/orders/kitchen'),
+  completeOrder: (id) => API.put(`/orders/${id}/complete`),
+  
   // Shift
   getShiftActive: (userId) => API.get(`/shifts/active/${userId}`),
   getShiftSummary: () => API.get('/shifts/summary'),

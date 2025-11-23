@@ -88,3 +88,46 @@ exports.create = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// 4. GET Pesanan Dapur (Yang belum selesai / completedAt IS NULL)
+exports.getKitchenOrders = async (req, res) => {
+  try {
+    // Ambil order hari ini yang statusnya tidak cancelled DAN belum selesai
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        orderId, dailyNumber, orderName, createdAt, status, table_id,
+        items:orderitems ( itemName, quantity, notes )
+      `)
+      .gte('createdAt', today)
+      .neq('status', 'cancelled')
+      .is('completedAt', null) // Filter: Hanya yang belum selesai
+      .order('createdAt', { ascending: true }); // Yang lama di atas (FIFO)
+
+    if (error) throw error;
+    res.json({ data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// 5. MARK ORDER AS COMPLETED (Selesai Masak/Saji)
+exports.completeOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('orders')
+      .update({ completedAt: new Date().toISOString() })
+      .eq('orderId', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

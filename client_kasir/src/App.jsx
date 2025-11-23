@@ -10,6 +10,7 @@ import Login from './pages/Login';
 import TableMap from './pages/TableMap';
 import OrderPage from './pages/OrderPage';
 import ShiftDashboard from './pages/ShiftDashboard';
+import KitchenPage from './pages/KitchenPage';
 import KasirLayout from './components/KasirLayout';
 
 // Komponen Penjaga (Satpam)
@@ -44,6 +45,9 @@ const App = () => {
                             
                             {/* Halaman Shift & Laporan */}
                             <Route path="/shift" element={<ShiftDashboard />} />
+
+                            {/* Halaman Kitchen */}
+                            <Route path="/kitchen" element={<KitchenPage />} />
                         </Route>
 
                         {/* Catch-all Redirect */}
