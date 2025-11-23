@@ -16,6 +16,7 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
         category: '', 
         image_url: '',
         isAvailable: true,
+        stock: 100,
     });
 
     const [imageFile, setImageFile] = useState(null);
@@ -31,10 +32,10 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                 setFormData({
                     name: item.name || '',
                     price: item.price || '',
-                    // ✅ PERBAIKAN: Gunakan categoryId, bukan id
                     category: item.category || (categories[0]?.categoryId || ''),
                     image_url: item.image_url || '',
                     isAvailable: item.isAvailable ?? true,
+                    stock: item.stock || 100,
                 });
             } else {
                 // Mode Tambah Baru
@@ -45,6 +46,7 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                     category: categories[0]?.categoryId || '',
                     image_url: '',
                     isAvailable: true,
+                    stock: 100,
                 });
             }
             setImageFile(null);
@@ -208,6 +210,19 @@ const MenuItemForm = ({ isOpen, onClose, item, onSave }) => {
                                 required
                             />
                         </div>
+                    </div>
+
+                    {/* Input Stok */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Stok Harian</label>
+                        <input
+                            name="stock"
+                            type="number"
+                            min="0"
+                            value={formData.stock}
+                            onChange={handleChange}
+                            className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500"
+                        />
                     </div>
                 </div>
                 

@@ -38,6 +38,7 @@ export const api = {
   createTable: (data) => API.post('/tables', data),
   updateTable: (id, data) => API.put(`/tables/${id}`, data),
   deleteTable: (id) => API.delete(`/tables/${id}`),
+  clearTable: (id) => API.put(`/tables/${id}/clear`),
   
   // Users
   getUsers: () => API.get('/users'),
@@ -46,6 +47,8 @@ export const api = {
 
   // Orders
   getOrders: () => API.get('/orders'),
+  cancelOrder: (id) => API.post(`/orders/${id}/cancel`),
+  getTodayOrders: () => API.get('/orders?today=true'),
 
   // Reports
   getTopSellingItems: (startDate, endDate) => 

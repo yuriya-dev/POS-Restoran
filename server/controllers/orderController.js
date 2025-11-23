@@ -22,44 +22,41 @@ exports.getAll = async (req, res) => {
   }
 };
 
-// --- CREATE Order (Untuk Transaksi Kasir) ---
+// --- CREATE Order (Checkout) ---
 exports.create = async (req, res) => {
   try {
-    const { items, ...orderData } = req.body;
+    const { items, table_id, ...orderData } = req.body;
 
-    // --- 1. LOGIC PENENTUAN NOMOR URUT HARIAN ---
+    // 1. Cek Stok Dulu
+    for (const item of items) {
+      const { data: menu } = await supabase.from('menuitems').select('stock').eq('itemId', item.itemId).single();
+      if (menu && menu.stock < item.quantity) {
+        return res.status(400).json({ message: `Stok ${item.name} tidak cukup! Sisa: ${menu.stock}` });
+      }
+    }
+
+    // 2. Generate Daily Number
     const startOfToday = getStartOfDayISO();
-
-    // A. Cari nomor urut transaksi tertinggi yang dibuat HARI INI
-    const { data: maxOrder, error: maxOrderError } = await supabase
+    const { data: maxOrder } = await supabase
         .from('orders')
         .select('dailyNumber')
-        .gte('createdAt', startOfToday) // Filter: Hanya order yang dibuat hari ini
+        .gte('createdAt', startOfToday) 
         .order('dailyNumber', { ascending: false })
         .limit(1)
         .single();
         
-    // Tangani error (abaikan jika tidak ada baris yang ditemukan: PGRST116)
-    if (maxOrderError && maxOrderError.code !== 'PGRST116') {
-        throw maxOrderError;
-    }
-        
-    // B. Hitung nomor urut baru (Jika maxOrder null, mulai dari 1)
     const newDailyNumber = (maxOrder ? maxOrder.dailyNumber : 0) + 1;
     
-    // C. Masukkan dailyNumber ke payload order
-    orderData.dailyNumber = newDailyNumber; 
-
-    // --- 2. Insert Header Order ---
+    // 3. Insert Header
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .insert([orderData])
+      .insert([{ ...orderData, table_id, dailyNumber: newDailyNumber }])
       .select('orderId')
       .single();
 
     if (orderError) throw orderError;
 
-    // --- 3. Siapkan & Insert Detail Items ---
+    // 4. Insert Items & KURANGI STOK
     const orderItems = items.map(item => ({
       orderId: order.orderId,
       itemId: item.itemId,
@@ -70,13 +67,22 @@ exports.create = async (req, res) => {
       notes: item.notes
     }));
 
-    const { error: itemsError } = await supabase
-      .from('orderitems')
-      .insert(orderItems);
-
+    const { error: itemsError } = await supabase.from('orderitems').insert(orderItems);
     if (itemsError) throw itemsError;
 
-    // MODIFIKASI: Kembalikan orderId dan dailyNumber yang baru
+    // 5. Update Stok Menu (Looping update)
+    for (const item of items) {
+       await supabase.rpc('decrement_stock', { x: item.quantity, row_id: item.itemId });
+       // Note: Jika RPC belum dibuat, gunakan update biasa:
+       // const { data: current } = await supabase.from('menuitems').select('stock').eq('itemId', item.itemId).single();
+       // await supabase.from('menuitems').update({ stock: current.stock - item.quantity }).eq('itemId', item.itemId);
+    }
+
+    // 6. OTOMATISASI MEJA: Set status jadi 'occupied'
+    if (table_id) {
+        await supabase.from('dining_tables').update({ status: 'occupied' }).eq('table_id', table_id);
+    }
+
     res.status(201).json({ 
       message: "Order created", 
       orderId: order.orderId, 
@@ -84,9 +90,40 @@ exports.create = async (req, res) => {
     });
 
   } catch (err) {
-    console.error("CREATE ORDER FAILED:", err);
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
+};
+
+// --- BATALKAN ORDER ---
+exports.cancelOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 1. Ambil detail item untuk kembalikan stok
+        const { data: items } = await supabase.from('orderitems').select('itemId, quantity').eq('orderId', id);
+
+        // 2. Update Status Order
+        const { error } = await supabase
+            .from('orders')
+            .update({ status: 'cancelled' })
+            .eq('orderId', id);
+        
+        if (error) throw error;
+
+        // 3. KEMBALIKAN STOK (Restock)
+        if (items) {
+            for (const item of items) {
+                // Manual increment
+                 const { data: current } = await supabase.from('menuitems').select('stock').eq('itemId', item.itemId).single();
+                 await supabase.from('menuitems').update({ stock: current.stock + item.quantity }).eq('itemId', item.itemId);
+            }
+        }
+
+        res.json({ message: "Order dibatalkan & Stok dikembalikan." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
 // 4. GET Pesanan Dapur (Yang belum selesai / completedAt IS NULL)

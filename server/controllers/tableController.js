@@ -55,3 +55,18 @@ exports.delete = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.clearTable = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { error } = await supabase
+            .from('dining_tables')
+            .update({ status: 'available' })
+            .eq('table_id', id);
+            
+        if (error) throw error;
+        res.json({ message: "Meja kosong." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};

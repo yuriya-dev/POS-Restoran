@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, LayoutDashboard, Utensils, ChefHat } from 'lucide-react';
+import { LogOut, LayoutDashboard, Utensils, ChefHat, History } from 'lucide-react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 
 const KasirLayout = () => {
@@ -49,7 +49,17 @@ const KasirLayout = () => {
                         >
                             <LayoutDashboard className="w-4 h-4 mr-2" /> Shift
                         </Link>
-                                               <Link 
+                        <Link 
+                            to="/history" 
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center ${
+                                location.pathname === '/history' 
+                                ? 'bg-white text-blue-700 shadow-sm' 
+                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
+                            }`}
+                        >
+                        <History className="w-4 h-4 mr-2" /> Riwayat
+                        </Link>
+                        <Link 
                             to="/kitchen" 
                             className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center ${
                                 location.pathname === '/kitchen' 

@@ -12,6 +12,9 @@ export const api = {
   getMenuItems: () => API.get('/menu-items'),
   getTables: () => API.get('/tables'),
   createOrder: (data) => API.post('/orders', data),
+  cancelOrder: (id) => API.post(`/orders/${id}/cancel`),
+  clearTable: (id) => API.put(`/tables/${id}/clear`),
+  getTodayOrders: () => API.get('/orders?today=true'),
   
   // Dapur
   getKitchenOrders: () => API.get('/orders/kitchen'),

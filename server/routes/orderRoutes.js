@@ -6,5 +6,6 @@ router.get('/', controller.getAll);
 router.post('/', controller.create);
 router.get('/kitchen', controller.getKitchenOrders);
 router.put('/:id/complete', controller.completeOrder);
+router.post('/:id/cancel', controller.cancelOrder);
 
 module.exports = router;

@@ -220,6 +220,15 @@ const Reports = () => {
         );
     };
 
+    const handleVoid = async (orderId) => {
+        if(!window.confirm("Yakin batalkan pesanan ini? Stok akan dikembalikan.")) return;
+        try {
+            await api.cancelOrder(orderId); // Pastikan api.js admin punya ini
+            toast.success("Transaksi dibatalkan");
+            // Refresh data
+        } catch(e) { toast.error("Gagal batal"); }
+    };
+
     // Kolom Tabel Transaksi (Menggunakan SortableHeader)
     const transactionColumns = [
         { 
@@ -282,6 +291,16 @@ const Reports = () => {
                 >
                     <Eye className="w-4 h-4" />
                 </button>
+            )
+        },
+        { 
+            header: 'Aksi',
+            render: (_, row) => (
+                row.status !== 'cancelled' && (
+                    <button onClick={() => handleVoid(row.orderId)} className="text-red-600 text-xs hover:underline">
+                        Batalkan
+                    </button>
+                )
             )
         }
     ];
