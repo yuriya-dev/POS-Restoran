@@ -4,7 +4,7 @@ exports.getSettings = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('settings')
-      .select('*')
+      .select('*, editor:users!settings_updatedBy_fkey(fullName, username)') 
       .single();
 
     // Jika error selain "Row not found"
@@ -25,8 +25,23 @@ exports.getSettings = async (req, res) => {
 
 exports.updateSettings = async (req, res) => {
   try {
-    // Kita asumsikan configId selalu 'default'
-    // Cek dulu apakah row sudah ada?
+    // Ambil User ID dari Header (dikirim oleh interceptor frontend)
+    const userId = req.headers['x-user-id']; 
+
+    if (!userId) {
+        return res.status(401).json({ message: "User ID tidak ditemukan. Login ulang." });
+    }
+
+    const updates = {
+        ...req.body,
+        updatedBy: userId,
+        updated_at: new Date().toISOString()
+    };
+
+    // Hapus properti 'editor' jika ada di body agar tidak error saat save
+    delete updates.editor; 
+
+    // Cek apakah row sudah ada
     const { data: existing } = await supabase
       .from('settings')
       .select('configId')
@@ -36,18 +51,16 @@ exports.updateSettings = async (req, res) => {
     let result;
     
     if (!existing) {
-      // Jika belum ada, lakukan INSERT
       const { data, error } = await supabase
         .from('settings')
-        .insert([{ ...req.body, configId: 'default' }])
+        .insert([{ ...updates, configId: 'default' }])
         .select();
       if (error) throw error;
       result = data;
     } else {
-      // Jika sudah ada, lakukan UPDATE
       const { data, error } = await supabase
         .from('settings')
-        .update(req.body)
+        .update(updates)
         .eq('configId', 'default')
         .select();
       if (error) throw error;
@@ -56,6 +69,7 @@ exports.updateSettings = async (req, res) => {
 
     res.json(result[0]);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 };

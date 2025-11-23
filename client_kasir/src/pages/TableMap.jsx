@@ -81,7 +81,7 @@ const TableMap = () => {
             </div>
 
             {/* Grid Meja */}
-            <main className="flex-grow p-6 pt-0 overflow-y-auto custom-scrollbar">
+            <main className="grow p-6 pt-3 overflow-y-auto custom-scrollbar">
                 {loading ? (
                     <div className="flex justify-center py-20 text-gray-500">
                         <Loader2 className="w-6 h-6 animate-spin mr-2" /> Memuat Denah...

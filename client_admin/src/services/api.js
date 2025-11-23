@@ -1,12 +1,32 @@
-// src/services/api.js
 import axios from 'axios';
 
-// Ganti URL sesuai port server Express Anda
+// Ganti URL sesuai port server Express Anda (biasanya 5000)
 const API = axios.create({
   baseURL: 'http://localhost:5001/api', 
 });
 
-// Interceptor (Opsional: Untuk debugging)
+// ✅ TAMBAHAN PENTING: Request Interceptor
+// Ini otomatis mengambil ID user dari localStorage dan mengirimnya ke server
+// Server butuh ini untuk fitur "Tracking Update" di Settings
+API.interceptors.request.use((config) => {
+  const storedUser = localStorage.getItem('user'); // Sesuaikan key dengan AuthContext ('user')
+  if (storedUser) {
+    try {
+      const user = JSON.parse(storedUser);
+      if (user && user.userId) {
+        // Kirim custom header x-user-id
+        config.headers['x-user-id'] = user.userId;
+      }
+    } catch (error) {
+      console.error("Gagal parsing user data untuk header", error);
+    }
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
+// Response Interceptor (Log error global)
 API.interceptors.response.use(
   response => response,
   error => {
@@ -15,7 +35,6 @@ API.interceptors.response.use(
   }
 );
 
-// --- Endpoints Definition ---
 export const api = {
   // Auth
   login: (credentials) => API.post('/auth/login', credentials),
@@ -38,23 +57,19 @@ export const api = {
   createTable: (data) => API.post('/tables', data),
   updateTable: (id, data) => API.put(`/tables/${id}`, data),
   deleteTable: (id) => API.delete(`/tables/${id}`),
-  clearTable: (id) => API.put(`/tables/${id}/clear`),
   
-  // Users
+  // Users (Employees)
   getUsers: () => API.get('/users'),
-  deleteUser: (id) => API.delete(`/users/${id}`),
+  deleteUser: (id) => API.delete(`/users/${id}`), 
   updateUser: (id, data) => API.put(`/users/${id}`, data),
 
-  // Orders
+  // Orders & Reports
   getOrders: () => API.get('/orders'),
   cancelOrder: (id) => API.post(`/orders/${id}/cancel`),
-  getTodayOrders: () => API.get('/orders?today=true'),
-
-  // Reports
   getTopSellingItems: (startDate, endDate) => 
     API.get('/reports/top-selling', { params: { startDate, endDate } }),
 
-  // --- Settings ---
+  // ✅ Settings
   getSettings: () => API.get('/settings'),
   updateSettings: (data) => API.put('/settings', data),
 };

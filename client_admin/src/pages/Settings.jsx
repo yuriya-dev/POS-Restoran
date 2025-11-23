@@ -2,23 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { 
     Settings as SettingsIcon, Save, RefreshCw, 
     Store, Percent, Receipt, Clock, 
-    UploadCloud, Loader2, CheckCircle 
+    UploadCloud, Loader2, CheckCircle, User, Calendar 
 } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { formatCurrency } from '../utils/helpers';
 import { useSettings } from '../context/SettingsContext';
 import { uploadToCloudinary } from '../services/cloudinary';
+import { format } from 'date-fns'; 
+import { id } from 'date-fns/locale'; 
 
 const Settings = () => {
     const { settings: currentSettings, updateSettings, loading } = useSettings();
     
-    // State Tab Aktif
     const [activeTab, setActiveTab] = useState('general');
 
-    // State Form
+    // State Form (Hapus email dari default state)
     const [formData, setFormData] = useState({
-        restaurantName: '', address: '', phone: '', email: '', logoUrl: '',
+        restaurantName: '', address: '', phone: '', logoUrl: '',
         receiptHeader: '', receiptFooter: 'Terima kasih!', wifiInfo: '', socialMedia: '',
         taxRate: 0.1, serviceCharge: 0.05, packagingFee: 0,
         openingHours: '09:00 - 22:00', currency: 'Rp',
@@ -31,7 +32,10 @@ const Settings = () => {
     // Load Data Awal
     useEffect(() => {
         if (currentSettings) {
-            setFormData(prev => ({ ...prev, ...currentSettings }));
+            // Filter properti yang tidak perlu agar form bersih
+            // Kita juga membuang 'receiptInfo' jika masih ada nyangkut dari data lama
+            const { editor, receiptInfo, email, ...cleanSettings } = currentSettings;
+            setFormData(prev => ({ ...prev, ...cleanSettings }));
         }
     }, [currentSettings]);
 
@@ -62,11 +66,29 @@ const Settings = () => {
         setIsSaving(true);
         setSaveSuccess(false);
         try {
-            await updateSettings(formData);
+            // ✅ SANITASI DATA: Pastikan hanya field valid yang dikirim
+            // Ini mencegah error "column not found" jika ada sisa data sampah
+            const payload = {
+                restaurantName: formData.restaurantName,
+                address: formData.address,
+                phone: formData.phone,
+                logoUrl: formData.logoUrl,
+                receiptHeader: formData.receiptHeader,
+                receiptFooter: formData.receiptFooter,
+                wifiInfo: formData.wifiInfo,
+                socialMedia: formData.socialMedia,
+                taxRate: formData.taxRate,
+                serviceCharge: formData.serviceCharge,
+                packagingFee: formData.packagingFee,
+                openingHours: formData.openingHours,
+                currency: formData.currency
+            };
+
+            await updateSettings(payload);
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
         } catch (error) {
-            console.error(error);
+            console.error("Save Error:", error);
         } finally {
             setIsSaving(false);
         }
@@ -79,7 +101,6 @@ const Settings = () => {
     const packaging = Number(formData.packagingFee || 0);
     const total = subtotal + tax + service + packaging;
 
-    // --- Komponen Tab Button ---
     const TabBtn = ({ id, icon: Icon, label }) => (
         <button
             type="button"
@@ -95,7 +116,6 @@ const Settings = () => {
         </button>
     );
 
-    // Input Style Classes
     const inputClass = "w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all";
     const labelClass = "block text-sm font-semibold text-gray-700 mb-2";
 
@@ -120,11 +140,11 @@ const Settings = () => {
                     <p className="text-sm text-gray-600 mt-2 ml-1">Sesuaikan profil restoran dan konfigurasi sistem POS Anda.</p>
                 </div>
                 
-                {/* Action Buttons (Desktop) */}
+                {/* Action Buttons */}
                 <div className="hidden sm:flex space-x-3">
                     <Button 
                         variant="secondary" 
-                        onClick={() => setFormData({ ...formData, ...currentSettings })} 
+                        onClick={() => currentSettings && setFormData(prev => ({ ...prev, ...currentSettings }))} 
                         icon={<RefreshCw className="w-4 h-4" />}
                         className="shadow-sm"
                     >
@@ -141,6 +161,23 @@ const Settings = () => {
                     </Button>
                 </div>
             </div>
+
+            {/* Info Update Terakhir */}
+            {currentSettings?.updated_at && (
+                <div className="mb-8 bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap items-center text-xs text-gray-500 shadow-sm">
+                    <span className="font-semibold mr-2 bg-gray-100 px-2 py-1 rounded text-gray-700">Status Terkini:</span>
+                    <div className="flex items-center mr-6">
+                        <Calendar className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
+                        Diperbarui pada {format(new Date(currentSettings.updated_at), 'dd MMMM yyyy, HH:mm', { locale: id })}
+                    </div>
+                    {currentSettings.editor && (
+                        <div className="flex items-center">
+                            <User className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
+                            Oleh: <span className="font-semibold ml-1 text-blue-700">{currentSettings.editor.fullName || currentSettings.editor.username}</span>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
@@ -186,7 +223,7 @@ const Settings = () => {
                                         <p className="text-xs text-gray-500 mt-2">JPG, PNG max 2MB</p>
                                     </div>
                                     
-                                    {/* Basic Info */}
+                                    {/* Basic Info (Tanpa Email) */}
                                     <div className="grow space-y-5 w-full">
                                         <div>
                                             <label className={labelClass}>Nama Restoran *</label>
@@ -198,28 +235,15 @@ const Settings = () => {
                                                 placeholder="Contoh: Restoran Padang Sederhana" 
                                             />
                                         </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                            <div>
-                                                <label className={labelClass}>No. Telepon</label>
-                                                <input 
-                                                    name="phone" 
-                                                    value={formData.phone} 
-                                                    onChange={handleChange} 
-                                                    className={inputClass}
-                                                    placeholder="+62 812-3456-7890"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className={labelClass}>Email</label>
-                                                <input 
-                                                    name="email" 
-                                                    type="email"
-                                                    value={formData.email} 
-                                                    onChange={handleChange} 
-                                                    className={inputClass}
-                                                    placeholder="info@restoran.com"
-                                                />
-                                            </div>
+                                        <div>
+                                            <label className={labelClass}>No. Telepon</label>
+                                            <input 
+                                                name="phone" 
+                                                value={formData.phone} 
+                                                onChange={handleChange} 
+                                                className={inputClass}
+                                                placeholder="+62 812-3456-7890"
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -404,10 +428,8 @@ const Settings = () => {
                     </div>
                 </div>
 
-                {/* KOLOM KANAN: PREVIEW (STICKY) */}
+                {/* KOLOM KANAN: PREVIEW */}
                 <div className="lg:col-span-1 space-y-6">
-                    
-                    {/* Alert Save Success */}
                     {saveSuccess && (
                         <div className="bg-linear-to-r from-green-100 to-green-50 border-2 border-green-300 text-green-800 px-5 py-4 rounded-xl flex items-center shadow-lg animate-bounce">
                             <CheckCircle className="w-6 h-6 mr-3 text-green-600" />
@@ -415,7 +437,6 @@ const Settings = () => {
                         </div>
                     )}
 
-                    {/* Preview Struk */}
                     <div className="sticky top-6">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider flex items-center">
@@ -427,7 +448,6 @@ const Settings = () => {
                         <div className="bg-white p-6 shadow-2xl border-2 border-gray-300 w-full mx-auto rounded-lg" 
                              style={{ maxWidth: '320px', fontFamily: '"Courier New", Courier, monospace' }}>
                             
-                            {/* Header Struk */}
                             <div className="text-center mb-4 pb-3 border-b-2 border-dashed border-gray-300">
                                 {formData.logoUrl && (
                                     <img src={formData.logoUrl} alt="Logo" className="w-16 h-16 mx-auto mb-3 rounded-lg object-cover border-2 border-gray-200" />
@@ -441,14 +461,12 @@ const Settings = () => {
                                 <p className="text-center text-[11px] mb-3 pb-3 border-b border-dashed border-gray-300 italic text-gray-700">{formData.receiptHeader}</p>
                             )}
 
-                            {/* Items Simulation */}
                             <div className="text-[12px] space-y-1.5 mb-3">
                                 <div className="flex justify-between"><span>1x Nasi Goreng</span> <span className="font-semibold">100.000</span></div>
                             </div>
 
                             <div className="border-t-2 border-dashed border-gray-400 my-3"></div>
 
-                            {/* Totals */}
                             <div className="text-[12px] space-y-1.5">
                                 <div className="flex justify-between text-gray-600"><span>Subtotal</span> <span>{formatCurrency(subtotal)}</span></div>
                                 {formData.taxRate > 0 && (
@@ -466,7 +484,6 @@ const Settings = () => {
 
                             <div className="border-t-2 border-dashed border-gray-400 my-4"></div>
 
-                            {/* Footer */}
                             <div className="text-center text-[11px] space-y-1.5 text-gray-600">
                                 <p className="italic">{formData.receiptFooter}</p>
                                 {formData.wifiInfo && <p className="mt-2 font-semibold text-blue-700">📶 {formData.wifiInfo}</p>}
@@ -475,7 +492,6 @@ const Settings = () => {
                             </div>
                         </div>
 
-                        {/* Mobile Action Button */}
                         <div className="mt-6 sm:hidden">
                             <Button 
                                 variant="primary" 

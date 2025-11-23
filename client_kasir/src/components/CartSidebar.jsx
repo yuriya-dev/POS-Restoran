@@ -36,9 +36,37 @@ const CartSidebar = () => {
         try {
             const user = JSON.parse(localStorage.getItem('pos_kasir_user'));
 
+            if (user?.userId) {
+                try {
+                    const shiftRes = await api.getShiftActive(user.userId);
+                    const activeShift = shiftRes.data.data;
+
+                    if (!activeShift) {
+                        toast.error("Shift Belum Dibuka! Silakan input modal awal dulu.", {
+                            duration: 4000,
+                            icon: '🔒'
+                        });
+                        // Redirect ke halaman Buka Shift
+                        navigate('/shift');
+                        return; // Hentikan proses checkout
+                    }
+
+                    // Simpan shiftId untuk payload nanti
+                    user.currentShiftId = activeShift.shiftId;
+
+                } catch (shiftError) {
+                    console.error("Gagal cek shift", shiftError);
+                    // Opsional: Tetap lanjut atau stop jika server error?
+                    // Untuk keamanan data, sebaiknya stop.
+                    toast.error("Gagal memverifikasi shift kasir.");
+                    return;
+                }
+            }
+
             const payload = {
                 table_id: selectedTable, 
                 userId: user?.userId,
+                shiftId: user?.currentShiftId,
                 orderName: `Table ${selectedTable}`,
                 status: 'paid',
                 paymentMethod: paymentMethod,
