@@ -1,7 +1,5 @@
-// src/App.jsx (atau router.jsx)
-
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
 // --- Context Providers (WAJIB ADA) ---
@@ -14,7 +12,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import MenuItems from './pages/MenuItems';
 import MenuCategories from './pages/MenuCategories'; 
-import TableManagement from './pages/TableManajement'; // Pastikan nama file sesuai
+import TableManagement from './pages/TableManajement'; 
 import Employees from './pages/Employees'; 
 import Settings from './pages/Settings';
 import Reports from './pages/Reports';
@@ -22,11 +20,37 @@ import Reports from './pages/Reports';
 // --- Components ---
 import AdminLayout from './components/layout/AdminLayout';
 
-// --- Komponen Protected Route yang Ditingkatkan ---
+// ✅ KOMPONEN BARU: Update Judul Website Otomatis
+const TitleUpdater = () => {
+    const location = useLocation();
+
+    useEffect(() => {
+        const path = location.pathname;
+        const baseTitle = 'POS Restoran';
+        let pageTitle = '';
+
+        switch(path) {
+            case '/': pageTitle = 'Dashboard'; break;
+            case '/login': pageTitle = 'Login Staff'; break;
+            case '/menu': pageTitle = 'Manajemen Menu'; break;
+            case '/categories': pageTitle = 'Kategori Menu'; break;
+            case '/tables': pageTitle = 'Denah Meja'; break;
+            case '/reports': pageTitle = 'Laporan Penjualan'; break;
+            case '/employees': pageTitle = 'Kelola Karyawan'; break;
+            case '/settings': pageTitle = 'Pengaturan Toko'; break;
+            default: pageTitle = '';
+        }
+
+        document.title = pageTitle ? `${pageTitle} | ${baseTitle}` : baseTitle;
+    }, [location]);
+
+    return null; // Komponen ini tidak merender visual apa-apa
+};
+
+// --- Komponen Protected Route ---
 const ProtectedRoute = ({ children, allowedRoles }) => {
     const { user, loading } = useAuth();
 
-    // 1. Tampilkan Loading Spinner saat cek session (PENTING agar tidak auto-logout saat refresh)
     if (loading) {
         return (
             <div className="flex items-center justify-center h-screen bg-gray-100">
@@ -35,30 +59,28 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
         );
     }
 
-    // 2. Cek Autentikasi
     if (!user) {
         return <Navigate to="/login" replace />;
     }
 
-    // 3. Cek Role (Opsional)
-    // Asumsi user.role berasal dari database tabel 'users'
     if (allowedRoles && !allowedRoles.includes(user.role)) {
-        // Jika role tidak cocok (misal Kasir coba buka halaman Admin), lempar ke Dashboard
         return <Navigate to="/" replace />; 
     }
 
-    // Render halaman jika aman (support Outlet untuk parent route atau children untuk wrapping langsung)
     return children ? children : <Outlet />;
 };
 
 const App = () => {
     return (
-        // Urutan Provider: Auth (User) -> Settings (Global Config) -> Data (App Data)
         <AuthProvider>
             <SettingsProvider>
                 <DataProvider>
                     <BrowserRouter>
+                        {/* ✅ Pasang TitleUpdater di dalam BrowserRouter */}
+                        <TitleUpdater />
+                        
                         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+                        
                         <Routes>
                             {/* Route Public */}
                             <Route path="/login" element={<Login />} />
@@ -72,10 +94,10 @@ const App = () => {
                                     </ProtectedRoute>
                                 }
                             >
-                                {/* Dashboard (Bisa diakses semua role) */}
+                                {/* Dashboard */}
                                 <Route index element={<Dashboard />} />
                                 
-                                {/* Manajemen (Bisa diakses semua role) */}
+                                {/* Manajemen */}
                                 <Route path="menu" element={<MenuItems />} />
                                 <Route path="categories" element={<MenuCategories />} />
                                 <Route path="tables" element={<TableManagement />} />

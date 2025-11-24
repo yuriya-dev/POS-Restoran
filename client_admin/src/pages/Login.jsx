@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom'; // 1. Import ini
-import { LogIn, AlertTriangle, Loader2 } from 'lucide-react';
+import { User, AlertTriangle, Loader2 } from 'lucide-react';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -49,7 +49,7 @@ const Login = () => {
       <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-2xl transition duration-500 hover:shadow-3xl">
         <div className="flex flex-col items-center">
           <div className="bg-blue-100 p-3 rounded-full mb-4">
-            <LogIn className="w-8 h-8 text-blue-600" />
+            <User className="w-8 h-8 text-blue-600" />
           </div>
           <h2 className="text-3xl font-extrabold text-gray-900 mb-2">POS Restoran</h2>
           <p className="text-sm text-gray-500 mb-6">Login Admin Dashboard</p>
@@ -116,7 +116,7 @@ const Login = () => {
               </>
             ) : (
               <>
-                <LogIn className="w-5 h-5 mr-2" />
+                <User className="w-5 h-5 mr-2" />
                 Masuk
               </>
             )}
@@ -125,7 +125,7 @@ const Login = () => {
 
         <div className="mt-8 pt-6 border-t border-gray-100 text-center">
             <p className="text-xs text-gray-400">
-                Gunakan akun <strong>admin</strong> atau <strong>kasir</strong> yang telah didaftarkan.
+                Gunakan akun <strong>Admin</strong> yang telah didaftarkan.
             </p>
         </div>
       </div>

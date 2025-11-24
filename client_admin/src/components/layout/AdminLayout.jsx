@@ -29,10 +29,8 @@ const AdminLayout = () => {
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Header (Search, Profile, Notif) - Placeholder */}
-                {/* <Header title={title} /> */}
                 
-                {/* Fixed Header/Title for the main area */}
+                {/* Header/Title */}
                 <header className="sticky top-0 z-30 bg-white shadow-sm px-6 py-4 border-b border-gray-200 flex items-center gap-4">
                     
                     {/* Mobile Menu Button */}
@@ -43,15 +41,7 @@ const AdminLayout = () => {
                     <Menu className="w-6 h-6" />
                     </button>
 
-                    <div>
                     <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
-                    <nav className="text-sm font-light text-gray-500">
-                        Home {location.pathname.split('/').map((path, index) => {
-                        if (path && index > 0) return ` / ${getTitle(`/${path}`)}`;
-                        return null;
-                        })}
-                    </nav>
-                    </div>
                 </header>
 
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { formatCurrency } from '../utils/helpers';
@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
-import { usePDF } from 'react-to-pdf'; // ✅ Gunakan ini
+import { usePDF } from 'react-to-pdf'; 
 
 const ShiftDashboard = () => {
     const { user } = useAuth();
@@ -23,11 +23,21 @@ const ShiftDashboard = () => {
     const [showCloseModal, setShowCloseModal] = useState(false);
     const [shiftReport, setShiftReport] = useState(null); 
 
-    // ✅ Setup PDF Generator untuk Laporan Shift
+    // Setup PDF Generator untuk Laporan Shift
     const { toPDF, targetRef } = usePDF({filename: `laporan_shift_${new Date().toISOString().slice(0,10)}.pdf`});
 
-    // ... (useEffect dan fungsi fetch tetap sama) ...
     useEffect(() => { checkShiftStatus(); }, [user]);
+
+    // Handle ESC Key untuk Modal Tutup Shift
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape' && showCloseModal) {
+                setShowCloseModal(false);
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [showCloseModal]);
 
     const checkShiftStatus = async () => {
         try {
@@ -141,7 +151,7 @@ const ShiftDashboard = () => {
                     {/* Tombol Aksi */}
                     <div className="p-6 bg-gray-50 border-t flex flex-col gap-3">
                         <button 
-                            onClick={() => toPDF()} // ✅ Gunakan toPDF
+                            onClick={() => toPDF()} 
                             className="w-full py-3 bg-gray-800 text-white rounded-lg font-bold flex items-center justify-center hover:bg-gray-900"
                         >
                             <Printer className="w-5 h-5 mr-2" /> Download Laporan (PDF)
@@ -202,9 +212,9 @@ const ShiftDashboard = () => {
         );
     }
 
-    // CASE 3: DASHBOARD KASIR (Sama seperti sebelumnya)
+    // CASE 3: DASHBOARD KASIR
     return (
-        <div className="p-6 space-y-6 max-w-7xl mx-auto">
+        <div className="p-6 max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center">
@@ -282,10 +292,16 @@ const ShiftDashboard = () => {
                 </div>
             </div>
 
-            {/* Modal Input Tutup Kasir */}
+            {/* ✅ MODAL INPUT TUTUP KASIR (DIPERBAIKI) */}
             {showCloseModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
+                <div 
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+                    onClick={() => setShowCloseModal(false)} // Klik luar untuk tutup
+                >
+                    <div 
+                        className="bg-white rounded-2xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()} // Cegah close saat klik konten
+                    >
                         <h3 className="text-xl font-bold text-gray-800 mb-2">Tutup Shift Kasir</h3>
                         <p className="text-gray-500 text-sm mb-6">Hitung uang fisik di laci dan masukkan jumlahnya.</p>
                         
@@ -300,8 +316,18 @@ const ShiftDashboard = () => {
                         />
                         
                         <div className="flex gap-3">
-                            <button onClick={() => setShowCloseModal(false)} className="flex-1 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition">Batal</button>
-                            <button onClick={handleCalculateClose} className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition">Lanjut</button>
+                            <button 
+                                onClick={() => setShowCloseModal(false)} 
+                                className="flex-1 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition"
+                            >
+                                Batal
+                            </button>
+                            <button 
+                                onClick={handleCalculateClose}
+                                className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition"
+                            >
+                                Lanjut
+                            </button>
                         </div>
                     </div>
                 </div>

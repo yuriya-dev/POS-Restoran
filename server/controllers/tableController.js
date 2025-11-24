@@ -61,11 +61,14 @@ exports.clearTable = async (req, res) => {
         const { id } = req.params;
         const { error } = await supabase
             .from('dining_tables')
-            .update({ status: 'available' })
+            .update({ 
+                status: 'available',
+                occupied_at: null
+            }) 
             .eq('table_id', id);
             
         if (error) throw error;
-        res.json({ message: "Meja kosong." });
+        res.json({ message: "Meja berhasil dikosongkan." });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

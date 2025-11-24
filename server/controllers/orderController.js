@@ -6,13 +6,24 @@ const getStartOfDayISO = () => {
   return d.toISOString();
 };
 
-// --- GET All Orders ---
+// --- GET All Orders (Bisa Filter Today) ---
 exports.getAll = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { today } = req.query; // 1. Tangkap parameter query '?today=true'
+
+    // 2. Mulai Query Dasar
+    let query = supabase
       .from('orders')
       .select('*, items:orderitems!orderitems_orderId_fkey(*)') 
-      .order('createdAt', { ascending: false });
+
+    // 3. Terapkan Filter Jika Parameter Ada
+    if (today === 'true') {
+        const startOfDay = getStartOfDayISO();
+        query = query.gte('createdAt', startOfDay); // Hanya data sejak jam 00:00 hari ini
+    }
+
+    // 4. Urutkan dan Eksekusi
+    const { data, error } = await query.order('createdAt', { ascending: false });
 
     if (error) throw error;
     res.json(data);
@@ -74,10 +85,8 @@ exports.create = async (req, res) => {
     const { error: itemsError } = await supabase.from('orderitems').insert(orderItems);
     if (itemsError) throw itemsError;
 
-    // ✅ 5. UPDATE STOK MENU (PERBAIKAN: MENGGUNAKAN LOGIKA MANUAL)
-    // Kita tidak pakai RPC agar lebih stabil tanpa setup SQL tambahan
+    // 5. UPDATE STOK MENU (MANUAL)
     for (const item of items) {
-       // A. Ambil stok saat ini
        const { data: current } = await supabase
           .from('menuitems')
           .select('stock')
@@ -89,7 +98,6 @@ exports.create = async (req, res) => {
            const qty = Number(item.quantity);
            const newStock = oldStock - qty;
 
-           // B. Update dengan stok baru
            await supabase
               .from('menuitems')
               .update({ stock: newStock })
@@ -99,7 +107,9 @@ exports.create = async (req, res) => {
 
     // 6. Otomatisasi Meja
     if (table_id) {
-        await supabase.from('dining_tables').update({ status: 'occupied' }).eq('table_id', table_id);
+        await supabase.from('dining_tables')
+        .update({ status: 'occupied', occupied_at: new Date().toISOString() })
+        .eq('table_id', table_id);
     }
 
     res.status(201).json({ 
@@ -127,7 +137,7 @@ exports.cancelOrder = async (req, res) => {
         
         if (error) throw error;
 
-        // ✅ KEMBALIKAN STOK MANUAL
+        // KEMBALIKAN STOK
         if (items) {
             for (const item of items) {
                 const { data: current } = await supabase.from('menuitems').select('stock').eq('itemId', item.itemId).single();
@@ -148,7 +158,7 @@ exports.cancelOrder = async (req, res) => {
     }
 };
 
-// ... getKitchenOrders & completeOrder tetap sama (tidak perlu diubah) ...
+// ... getKitchenOrders & completeOrder ...
 exports.getKitchenOrders = async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];

@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 
 // Contexts
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -14,6 +14,29 @@ import ShiftDashboard from './pages/ShiftDashboard';
 import KitchenPage from './pages/KitchenPage';
 import HistoryPage from './pages/HistoryPage';
 import KasirLayout from './components/KasirLayout';
+
+// Title Updater untuk Kasir
+const TitleUpdater = () => {
+    const location = useLocation();
+
+    useEffect(() => {
+        const path = location.pathname;
+        const baseTitle = 'POS Kasir';
+        let pageTitle = '';
+
+        // Logic Judul Halaman Kasir
+        if (path === '/login') pageTitle = 'Login Kasir';
+        else if (path === '/') pageTitle = 'Denah Meja';
+        else if (path.startsWith('/order/')) pageTitle = 'Order Pesanan';
+        else if (path === '/shift') pageTitle = 'Shift & Laporan';
+        else if (path === '/kitchen') pageTitle = 'Monitor Dapur';
+        else if (path === '/history') pageTitle = 'Riwayat Transaksi';
+        
+        document.title = pageTitle ? `${pageTitle} | ${baseTitle}` : baseTitle;
+    }, [location]);
+
+    return null;
+};
 
 // Komponen Penjaga (Satpam)
 const ProtectedRoute = ({ children }) => {
@@ -34,6 +57,9 @@ const App = () => {
             <SettingsProvider>
                 <CartProvider>
                     <BrowserRouter>
+                        {/* TitleUpdater */}
+                        <TitleUpdater />
+
                         <Routes>
                             {/* Route Public */}
                             <Route path="/login" element={<Login />} />

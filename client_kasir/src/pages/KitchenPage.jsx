@@ -96,13 +96,13 @@ const KitchenPage = () => {
                             </div>
 
                             {/* Item List */}
-                            <div className="p-4 flex-grow overflow-y-auto max-h-80 bg-white">
+                            <div className="p-4 grow overflow-y-auto max-h-80 bg-white">
                                 <ul className="space-y-3">
                                     {order.items?.map((item, idx) => (
                                         <li key={idx} className="flex flex-col border-b border-gray-50 last:border-0 pb-2 last:pb-0">
                                             <div className="flex justify-between items-start">
                                                 <span className="font-bold text-gray-800 text-lg w-8">{item.quantity}x</span>
-                                                <span className="flex-grow text-gray-700 font-medium">{item.itemName}</span>
+                                                <span className="grow text-gray-700 font-medium">{item.itemName}</span>
                                             </div>
                                             {item.notes && (
                                                 <p className="text-red-500 text-xs italic ml-8 mt-1 bg-red-50 p-1 rounded inline-block self-start">

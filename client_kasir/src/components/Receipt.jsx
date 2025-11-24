@@ -7,33 +7,36 @@ export const Receipt = React.forwardRef(({ data }, ref) => {
 
     if (!data) return null;
 
-    // ✅ PERBAIKAN: Destructure variable dengan nama yang benar (sesuai DB)
-    // Kita tambahkan fallback: totalAmount (dari DB) ATAU total (dari kalkulasi lokal)
     const { 
-        orderId, 
-        dailyNumber, 
-        items, 
-        subtotal, 
-        
-        // Handle variasi nama field (DB vs Local State)
+        orderId, dailyNumber, items, subtotal, 
         taxAmount, tax, 
         totalAmount, total, 
-        
-        paymentMethod, 
-        cashReceived, 
-        changeGiven, 
-        cashier, 
-        date, 
-        serviceCharge, 
-        packagingFee 
+        paymentMethod, cashReceived, changeGiven, cashier, date, 
+        serviceCharge, packagingFee 
     } = data;
 
-    // ✅ Logika Fallback: Pilih nilai yang tersedia
     const finalTotal = totalAmount !== undefined ? totalAmount : (total || 0);
     const finalTax = taxAmount !== undefined ? taxAmount : (tax || 0);
     
+    // ✅ STYLE MANUAL (Aman untuk html2canvas/PDF)
+    // Menghindari penggunaan class Tailwind seperti 'bg-white' 'text-black' yang mungkin menggunakan oklch
+    const containerStyle = {
+        width: '80mm',
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        backgroundColor: '#ffffff', // Hex putih murni
+        color: '#000000',           // Hex hitam murni
+        padding: '16px'
+    };
+
+    const borderStyle = {
+        borderBottom: '1px dashed #000000',
+        marginTop: '8px',
+        marginBottom: '8px'
+    };
+
     return (
-        <div ref={ref} className="p-4 bg-white text-black" style={{ width: '80mm', fontFamily: 'monospace', fontSize: '12px' }}>
+        <div ref={ref} style={containerStyle}>
             
             {/* Header Struk */}
             <div className="text-center mb-2">
@@ -46,12 +49,12 @@ export const Receipt = React.forwardRef(({ data }, ref) => {
             </div>
 
             {settings?.receiptHeader && (
-                <p className="text-center text-[10px] mb-2 border-b border-black border-dashed pb-1">
+                <p className="text-center text-[10px] mb-2 pb-1" style={{ borderBottom: '1px dashed #000000' }}>
                     {settings.receiptHeader}
                 </p>
             )}
 
-            <div className="border-b border-black border-dashed my-2"></div>
+            <div style={borderStyle}></div>
 
             {/* Info Transaksi */}
             <div className="mb-2">
@@ -65,13 +68,13 @@ export const Receipt = React.forwardRef(({ data }, ref) => {
                 </div>
             </div>
 
-            <div className="border-b border-black border-dashed my-2"></div>
+            <div style={borderStyle}></div>
 
             {/* Item List */}
             <div className="space-y-1">
                 {items.map((item, index) => (
                     <div key={index}>
-                        <div className="font-bold">{item.name || item.itemName}</div> {/* Fallback itemName jika dari DB */}
+                        <div className="font-bold">{item.name || item.itemName}</div>
                         <div className="flex justify-between">
                             <span>{item.quantity} x {formatCurrency(item.price || item.itemPrice)}</span>
                             <span>{formatCurrency((item.price || item.itemPrice) * item.quantity)}</span>
@@ -81,9 +84,9 @@ export const Receipt = React.forwardRef(({ data }, ref) => {
                 ))}
             </div>
 
-            <div className="border-b border-black border-dashed my-2"></div>
+            <div style={borderStyle}></div>
 
-            {/* Totals Dinamis */}
+            {/* Totals */}
             <div className="space-y-1">
                 <div className="flex justify-between">
                     <span>Subtotal</span>
@@ -106,16 +109,16 @@ export const Receipt = React.forwardRef(({ data }, ref) => {
 
                 <div className="flex justify-between">
                     <span>Pajak ({(settings?.taxRate * 100).toFixed(0)}%)</span>
-                    <span>{formatCurrency(finalTax)}</span> {/* Gunakan finalTax */}
+                    <span>{formatCurrency(finalTax)}</span>
                 </div>
                 
-                <div className="flex justify-between font-bold text-sm mt-1 border-t border-black border-dashed pt-1">
+                <div className="flex justify-between font-bold text-sm mt-1 pt-1" style={{ borderTop: '1px dashed #000000' }}>
                     <span>TOTAL</span>
-                    <span>{formatCurrency(finalTotal)}</span> {/* Gunakan finalTotal */}
+                    <span>{formatCurrency(finalTotal)}</span>
                 </div>
             </div>
 
-            <div className="border-b border-black border-dashed my-2"></div>
+            <div style={borderStyle}></div>
 
             {/* Payment Info */}
             <div className="space-y-1">

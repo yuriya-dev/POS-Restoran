@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
-    BarChart3, DollarSign, ShoppingCart, TrendingUp, Filter, Download, Award, ListOrdered, ChevronDown, 
-    ArrowUp, ArrowDown, Eye, X, Receipt 
+    BarChart3, DollarSign, ShoppingCart, TrendingUp, Download, Award, ListOrdered, ChevronDown, 
+    ArrowUp, ArrowDown, Eye
 } from 'lucide-react';
 import { subDays, startOfMonth, isWithinInterval, format, startOfDay, endOfDay } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -12,7 +12,10 @@ import Button from '../components/common/Button';
 import Table from '../components/common/Table';
 import SalesChart from '../components/reports/SalesChart'; 
 import TopSellingItems from '../components/reports/TopSellingItems'; 
-import ConfirmModal from '../components/common/ConfirmModal'; // ✅ Import ConfirmModal
+import ConfirmModal from '../components/common/ConfirmModal'; 
+import Pagination from '../components/common/Pagination';
+import OrderDetailModal from '../components/common/OrderDetailModal';
+
 import { useData } from '../context/DataContext';
 import { api } from '../services/api';
 import { formatCurrency } from '../utils/helpers';
@@ -20,7 +23,7 @@ import { formatCurrency } from '../utils/helpers';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-// --- OPSI FILTER & KONSTANTA ---
+// ... (Kode OPSI FILTER, STATUS_OPTIONS, PAYMENT_OPTIONS tetap sama) ...
 const PERIOD_OPTIONS = [
     { label: 'Hari Ini', value: 'today', getRange: () => ({ start: startOfDay(new Date()), end: endOfDay(new Date()) }) },
     { label: '7 Hari Terakhir', value: '7days', getRange: () => ({ start: subDays(new Date(), 6), end: new Date() }) },
@@ -43,7 +46,7 @@ const PAYMENT_OPTIONS = [
     { value: 'other', label: 'Lainnya' },
 ];
 
-// --- FUNGSI HELPER ---
+// ... (Fungsi calculateMetrics & OrderDetailModal TETAP SAMA, saya skip biar tidak kepanjangan) ...
 const calculateMetrics = (orders) => { 
     const getVal = (val) => parseFloat(val) || 0;
     const totalRevenue = orders.reduce((acc, order) => acc + getVal(order.totalAmount), 0);
@@ -59,98 +62,6 @@ const calculateMetrics = (orders) => {
     return { totalRevenue, totalTransactions, avgTransaction, totalCash, totalNonCash, paymentBreakdown };
 };
 
-// --- SUB-COMPONENT: MODAL DETAIL TRANSAKSI ---
-const OrderDetailModal = ({ order, onClose }) => {
-    if (!order) return null;
-    const items = order.items || []; 
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-800 flex items-center">
-                            <Receipt className="w-5 h-5 mr-2 text-blue-600" />
-                            Detail Transaksi
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                            #{order.dailyNumber || order.orderId} • {format(new Date(order.createdAt), 'dd MMM yyyy HH:mm', { locale: id })}
-                        </p>
-                    </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition text-gray-500">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="p-6 overflow-y-auto">
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                            <span className="text-xs text-blue-600 font-bold uppercase tracking-wider">Pelanggan / Meja</span>
-                            <p className="font-semibold text-gray-800 text-lg">{order.orderName || '-'}</p>
-                        </div>
-                        <div className="p-3 bg-green-50 rounded-lg border border-green-100">
-                            <span className="text-xs text-green-600 font-bold uppercase tracking-wider">Metode Bayar</span>
-                            <p className="font-semibold text-gray-800 text-lg capitalize">{order.paymentMethod}</p>
-                        </div>
-                    </div>
-
-                    <h4 className="font-bold text-gray-700 mb-3 border-b pb-2">Item Pesanan ({items.length})</h4>
-                    
-                    {items.length === 0 ? (
-                        <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-lg border border-dashed">
-                            Tidak ada data item
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {items.map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-start py-2 border-b border-gray-50 last:border-0">
-                                    <div className="flex items-start space-x-3">
-                                        <span className="bg-gray-100 text-gray-600 font-bold w-8 h-8 flex items-center justify-center rounded-md text-sm">
-                                            {item.quantity}x
-                                        </span>
-                                        <div>
-                                            <p className="font-medium text-gray-800">{item.itemName}</p>
-                                            {item.notes && (
-                                                <p className="text-xs text-orange-600 italic mt-0.5 bg-orange-50 px-1.5 py-0.5 rounded inline-block">
-                                                    Catatan: {item.notes}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="font-medium text-gray-900">{formatCurrency(item.totalPrice)}</p>
-                                        <p className="text-xs text-gray-400">@ {formatCurrency(item.itemPrice)}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    <div className="mt-6 space-y-2 bg-gray-50 p-4 rounded-lg">
-                        <div className="flex justify-between text-sm text-gray-600">
-                            <span>Subtotal</span>
-                            <span>{formatCurrency(order.subtotal)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-gray-600">
-                            <span>Pajak (Tax)</span>
-                            <span>{formatCurrency(order.taxAmount)}</span>
-                        </div>
-                        <div className="border-t border-gray-200 my-2"></div>
-                        <div className="flex justify-between font-bold text-lg text-blue-600">
-                            <span>Total Bayar</span>
-                            <span>{formatCurrency(order.totalAmount)}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 text-right">
-                     <Button variant="secondary" onClick={onClose}>Tutup</Button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
 // --- KOMPONEN UTAMA ---
 const Reports = () => {
     const { orders, settings, refreshData } = useData(); 
@@ -158,23 +69,26 @@ const Reports = () => {
     const [customRange, setCustomRange] = useState({ start: null, end: null });
     const [activeTab, setActiveTab] = useState('overview'); 
     
-    // STATE FILTER
+    // STATE FILTER & SORT
     const [filterStatus, setFilterStatus] = useState('paid'); 
     const [filterPaymentMethod, setFilterPaymentMethod] = useState('all'); 
-
-    // STATE SORTIR
     const [sortColumn, setSortColumn] = useState('createdAt'); 
     const [sortDirection, setSortDirection] = useState('desc');
 
-    // STATE DETAIL
-    const [viewOrder, setViewOrder] = useState(null);
+    // ✅ STATE PAGINATION BARU
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10); // Tampilkan 10 per halaman
 
-    // ✅ STATE VOID (PEMBATALAN)
+    // STATE DETAIL & VOID
+    const [viewOrder, setViewOrder] = useState(null);
     const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
     const [orderToVoid, setOrderToVoid] = useState(null);
     const [isVoiding, setIsVoiding] = useState(false);
 
-    // --- HANDLERS ---
+    // Reset halaman ke 1 jika filter berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedPeriod, filterStatus, filterPaymentMethod, sortColumn, sortDirection]);
 
     const handleSort = (column) => {
         if (sortColumn === column) {
@@ -185,24 +99,18 @@ const Reports = () => {
         }
     };
 
-    // Handler Buka Modal Void
     const openVoidModal = (order, e) => {
         e.stopPropagation();
         setOrderToVoid(order);
         setIsVoidModalOpen(true);
     };
 
-    // Handler Eksekusi Void
     const confirmVoid = async () => {
         if (!orderToVoid) return;
-        
         setIsVoiding(true);
         try {
-            // Panggil API Cancel
             await api.cancelOrder(orderToVoid.orderId);
             toast.success("Transaksi berhasil dibatalkan & Stok dikembalikan.");
-            
-            // Refresh data agar status berubah jadi 'cancelled'
             await refreshData('orders'); 
         } catch (err) {
             console.error(err);
@@ -214,36 +122,28 @@ const Reports = () => {
         }
     };
     
-    // 1. Tentukan Rentang Tanggal
     const dateRange = useMemo(() => {
         if (selectedPeriod === 'custom') {
             if (!customRange.start || !customRange.end) return { start: null, end: null };
-            return { 
-                start: startOfDay(new Date(customRange.start)), 
-                end: endOfDay(new Date(customRange.end)) 
-            };
+            return { start: startOfDay(new Date(customRange.start)), end: endOfDay(new Date(customRange.end)) };
         }
         return PERIOD_OPTIONS.find(p => p.value === selectedPeriod)?.getRange() || { start: null, end: null };
     }, [selectedPeriod, customRange]);
 
-    // 2. Filter & Sortir Orders
     const filteredOrders = useMemo(() => {
         if (!Array.isArray(orders) || orders.length === 0 || !dateRange.start || !dateRange.end) return [];
         
         let result = orders.filter(order => {
             const orderDate = new Date(order.createdAt); 
-            
             const dateMatch = isWithinInterval(orderDate, { start: dateRange.start, end: dateRange.end });
             const statusMatch = filterStatus === 'all' || order.status === filterStatus;
             const paymentMatch = filterPaymentMethod === 'all' || order.paymentMethod === filterPaymentMethod;
-
             return dateMatch && statusMatch && paymentMatch;
         });
 
         result.sort((a, b) => {
             let valA = a[sortColumn];
             let valB = b[sortColumn];
-
             if (['totalAmount', 'orderId', 'dailyNumber'].includes(sortColumn)) {
                 valA = parseFloat(valA) || 0;
                 valB = parseFloat(valB) || 0;
@@ -254,7 +154,6 @@ const Reports = () => {
                 valA = String(valA).toLowerCase();
                 valB = String(valB).toLowerCase();
             }
-
             if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
             if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
             return 0;
@@ -263,17 +162,20 @@ const Reports = () => {
         return result;
     }, [orders, dateRange, filterStatus, filterPaymentMethod, sortColumn, sortDirection]);
     
-    // 3. Hitung Metrik
+    // ✅ LOGIKA SLICING UNTUK PAGINATION
+    const paginatedOrders = useMemo(() => {
+        const indexOfLastItem = currentPage * itemsPerPage;
+        const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+        return filteredOrders.slice(indexOfFirstItem, indexOfLastItem);
+    }, [filteredOrders, currentPage, itemsPerPage]);
+
     const metrics = useMemo(() => calculateMetrics(filteredOrders), [filteredOrders]);
 
-    // Export PDF
     const handleExport = () => {
         if (filteredOrders.length === 0) return alert("Tidak ada data untuk diexport.");
-
         const doc = new jsPDF();
         doc.setFontSize(16);
         doc.text("Laporan Penjualan", 14, 15);
-        
         doc.setFontSize(10);
         doc.text(`Periode: ${format(dateRange.start, 'dd MMM yyyy', { locale: id })} - ${format(dateRange.end, 'dd MMM yyyy', { locale: id })}`, 14, 22);
         doc.text(`Total Transaksi: ${filteredOrders.length}`, 14, 28);
@@ -281,7 +183,6 @@ const Reports = () => {
 
         const tableColumn = ["No.", "Tanggal", "Status", "Total", "Pembayaran"];
         const tableRows = [];
-
         filteredOrders.forEach((order, index) => {
             tableRows.push([
                 order.dailyNumber || (index + 1),
@@ -291,15 +192,7 @@ const Reports = () => {
                 order.paymentMethod || "-",
             ]);
         });
-
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 40,
-            styles: { fontSize: 9 },
-            theme: "grid"
-        });
-
+        autoTable(doc, { head: [tableColumn], body: tableRows, startY: 40, styles: { fontSize: 9 }, theme: "grid" });
         doc.save(`laporan_penjualan_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     };
 
@@ -320,44 +213,29 @@ const Reports = () => {
         );
     };
 
-    // Kolom Tabel
     const transactionColumns = [
         { 
             header: <SortableHeader header='No.' accessor='dailyNumber' />,
             accessor: 'dailyNumber', 
-            render: (dailyNum, item) => {
-                const displayId = dailyNum || item.orderId; 
-                return <span className={`font-mono text-xs font-semibold ${dailyNum ? 'text-blue-600' : 'text-gray-500'}`}>#{displayId}</span>;
-            }
+            render: (dailyNum, item) => <span className="font-mono text-xs font-semibold text-blue-600">#{dailyNum || item.orderId}</span>
         },
         { 
             header: <SortableHeader header='Waktu' accessor='createdAt' />,
             accessor: 'createdAt', 
             render: (time) => format(new Date(time), 'dd/MM HH:mm', { locale: id }) 
         },
-        { 
-            header: 'Status', 
-            accessor: 'status', 
-            render: (status) => (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                    status === 'paid' ? 'bg-green-100 text-green-800' : status === 'active' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                }`}>{status}</span>
-            )
-        },
+        { header: 'Status', accessor: 'status', render: (status) => (
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                status === 'paid' ? 'bg-green-100 text-green-800' : status === 'active' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+            }`}>{status}</span>
+        )},
         { header: <SortableHeader header='Total' accessor='totalAmount' />, accessor: 'totalAmount', render: formatCurrency },
         { header: 'Metode', accessor: 'paymentMethod', render: (m) => <span className="capitalize">{m}</span> },
         {
             header: 'Detail',
             accessor: 'actions',
             render: (_, item) => (
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setViewOrder(item);
-                    }}
-                    className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 text-blue-600 transition"
-                    title="Lihat Detail"
-                >
+                <button onClick={(e) => { e.stopPropagation(); setViewOrder(item); }} className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 text-blue-600 transition" title="Lihat Detail">
                     <Eye className="w-4 h-4" />
                 </button>
             )
@@ -366,10 +244,7 @@ const Reports = () => {
             header: 'Aksi',
             render: (_, row) => (
                 row.status !== 'cancelled' && (
-                    <button 
-                        onClick={(e) => openVoidModal(row, e)} // ✅ Klik tombol ini membuka modal
-                        className="text-red-600 text-xs hover:underline font-medium bg-red-50 px-2 py-1 rounded hover:bg-red-100 transition"
-                    >
+                    <button onClick={(e) => openVoidModal(row, e)} className="text-red-600 text-xs hover:underline font-medium bg-red-50 px-2 py-1 rounded hover:bg-red-100 transition">
                         Batalkan
                     </button>
                 )
@@ -390,9 +265,7 @@ const Reports = () => {
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center">
                         <BarChart3 className="w-6 h-6 mr-2 text-blue-600" /> Laporan Penjualan
                     </h1>
-                    <Button variant="secondary" onClick={handleExport} icon={<Download className="w-4 h-4" />} size="sm">
-                        Export PDF
-                    </Button>
+                    <Button variant="secondary" onClick={handleExport} icon={<Download className="w-4 h-4" />} size="sm">Export PDF</Button>
                 </div>
                 
                 {/* Filter Periode */}
@@ -465,9 +338,17 @@ const Reports = () => {
                                     
                                     <Table 
                                         columns={transactionColumns} 
-                                        data={filteredOrders} 
+                                        data={paginatedOrders} // ✅ GUNAKAN DATA YANG SUDAH DI-PAGINASI
                                         onRowClick={(row) => { setViewOrder(row); }} 
                                         emptyMessage="Tidak ada data transaksi untuk periode ini." 
+                                    />
+
+                                    {/* ✅ KOMPONEN PAGINATION */}
+                                    <Pagination 
+                                        currentPage={currentPage}
+                                        totalItems={filteredOrders.length}
+                                        itemsPerPage={itemsPerPage}
+                                        onPageChange={setCurrentPage}
                                     />
                                 </div>
                             </div>
@@ -480,15 +361,8 @@ const Reports = () => {
                 </Card>
             </div>
 
-            {/* Modal Detail Transaksi */}
-            {viewOrder && (
-                <OrderDetailModal
-                    order={viewOrder}
-                    onClose={() => setViewOrder(null)}
-                />
-            )}
+            {viewOrder && <OrderDetailModal order={viewOrder} onClose={() => setViewOrder(null)} />}
 
-            {/* ✅ MODAL KONFIRMASI BATALKAN ORDER */}
             <ConfirmModal
                 isOpen={isVoidModalOpen}
                 onClose={() => !isVoiding && setIsVoidModalOpen(false)}

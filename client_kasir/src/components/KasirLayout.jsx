@@ -2,16 +2,25 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, LayoutDashboard, Utensils, ChefHat, History, Menu } from 'lucide-react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
+import ConfirmModal from './common/ConfirmModal';
 
 const KasirLayout = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [open, setOpen] = useState(false);
+    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-    const handleLogout = () => {
+    // Handler untuk membuka modal
+    const handleLogoutClick = () => {
+        setIsLogoutModalOpen(true);
+    };
+
+    // Handler Eksekusi Logout
+    const confirmLogout = () => {
         logout();
         navigate('/login');
+        setIsLogoutModalOpen(false);
     };
 
     return (
@@ -84,7 +93,7 @@ const KasirLayout = () => {
 
                     {/* Logout Button */}
                     <button 
-                        onClick={handleLogout}
+                        onClick={handleLogoutClick}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                         title="Keluar"
                     >
@@ -157,6 +166,18 @@ const KasirLayout = () => {
             <main className="grow h-full overflow-hidden">
                 <Outlet />
             </main>
+
+            {/* KONFIRMASI LOGOUT */}
+            <ConfirmModal 
+                isOpen={isLogoutModalOpen}
+                onClose={() => setIsLogoutModalOpen(false)}
+                onConfirm={confirmLogout}
+                title="Konfirmasi Logout"
+                message="Apakah Anda yakin ingin keluar dari sesi kasir ini?"
+                confirmText="Ya, Keluar"
+                cancelText="Batal"
+                confirmButtonClass="bg-red-600 hover:bg-red-700"
+            />
         </div>
     );
 };
