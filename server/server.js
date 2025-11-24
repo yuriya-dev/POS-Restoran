@@ -6,10 +6,12 @@ require('dotenv').config();
 // CORS Configuration
 // Daftar domain/origin yang diizinkan mengakses server
 const allowedOrigins = [
-  'http://localhost:5173', // Client Admin
-  'http://localhost:5174', // Client Kasir
-  'http://127.0.0.1:5173', 
-  'http://127.0.0.1:5174'
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://pos-admin.vercel.app',
+  'https://pos-kasir.vercel.app'
+  // 'http://127.0.0.1:5173', 
+  // 'http://127.0.0.1:5174'
 ];
 
 app.use(cors({
