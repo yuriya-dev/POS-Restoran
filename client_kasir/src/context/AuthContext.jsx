@@ -27,17 +27,19 @@ export const AuthProvider = ({ children }) => {
             const res = await api.login({ username, password });
             if (res.data.success) {
                 const userData = res.data.user;
-                // Validasi: Hanya kasir atau admin yang boleh masuk sini
-                if (userData.role !== 'kasir' && userData.role !== 'admin') {
-                    throw new Error("Akses ditolak. Akun ini bukan untuk POS Kasir.");
-                }
                 
                 setUser(userData);
                 localStorage.setItem('pos_kasir_user', JSON.stringify(userData));
+
                 return true;
             }
         } catch (err) {
-            const msg = err.response?.data?.message || err.message || 'Login gagal';
+            let msg = err.response?.data?.message || err.message || 'Login gagal';
+            
+            if (err.response && err.response.status === 401) {
+                msg = 'Username atau password salah.';
+            }
+            
             throw msg;
         }
     };

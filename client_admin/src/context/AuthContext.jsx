@@ -27,22 +27,22 @@ export const AuthProvider = ({ children }) => {
             if (response.data.success) {
                 const userData = response.data.user;
 
-                // ✅ SECURITY FIX: Cek Role
-                // Jika user yang mencoba login bukan admin, tolak!
-                if (userData.role !== 'admin') {
-                    throw new Error('Akses Ditolak: Akun ini bukan akun Admin.');
-                }
-
                 setUser(userData);
                 localStorage.setItem('user', JSON.stringify(userData));
+
                 return response.data;
             }
             
             throw new Error('Login gagal');
         } catch (error) {
             console.error('Login error:', error);
-            // Pastikan error yang dilempar adalah string pesan
-            const msg = error.response?.data?.message || error.message || 'Terjadi kesalahan saat login';
+            
+            let msg = error.response?.data?.message || error.message || 'Terjadi kesalahan saat login';
+            
+            if (error.response && error.response.status === 401) {
+                msg = 'Username atau password salah.';
+            }
+            
             throw new Error(msg);
         }
     };

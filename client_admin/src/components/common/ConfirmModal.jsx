@@ -11,7 +11,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, confirmText 
             onClick={onClose}
         >
             {/* Backdrop Blur */}
-            <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm transition-opacity duration-300" aria-hidden="true"></div>
+            <div className="fixed inset-0 bg-black/50 bg-opacity-50 backdrop-blur-sm transition-opacity duration-300" aria-hidden="true"></div>
 
             {/* Modal Content */}
             <div 

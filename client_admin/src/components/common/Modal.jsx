@@ -26,7 +26,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
             onClick={onClose}
         >
             {/* Backdrop Blur & Opacity */}
-            <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm" aria-hidden="true"></div>
+            <div className="fixed inset-0 bg-black/50 bg-opacity-50 backdrop-blur-sm" aria-hidden="true"></div>
 
             {/* Modal Content - Slide-in Animation */}
             <div 
