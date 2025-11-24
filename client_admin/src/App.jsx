@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react';
+import './index.css';
+
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
