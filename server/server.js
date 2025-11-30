@@ -3,6 +3,15 @@ const cors = require('cors');
 const app = express();
 require('dotenv').config();
 
+// Initialize Redis (optional - only if Redis is available)
+let redisClient;
+try {
+  redisClient = require('./config/redis');
+  console.log('🚀 Redis initialized');
+} catch (error) {
+  console.warn('⚠️ Redis not available, running without cache');
+}
+
 // CORS Configuration
 // Daftar domain/origin yang diizinkan mengakses server
 const allowedOrigins = [
@@ -46,6 +55,7 @@ app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/shifts', require('./routes/shiftRoutes'));
+app.use('/api/cache', require('./routes/cacheRoutes')); // Cache management routes
 
 // Error Handler
 app.use((err, req, res, next) => {
@@ -54,6 +64,12 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server berjalan di port ${PORT}`);
+  
+  // Warm up cache saat server startup
+  if (redisClient) {
+    const { warmCache } = require('./utils/cacheWarming');
+    await warmCache();
+  }
 });

@@ -1,4 +1,6 @@
 const supabase = require('../config/supabase');
+const CacheService = require('../services/cacheService');
+const { setCacheResponse } = require('../middleware/cache');
 
 exports.getAll = async (req, res) => {
   try {
@@ -8,6 +10,12 @@ exports.getAll = async (req, res) => {
       .order('itemId', { ascending: true });
 
     if (error) throw error;
+    
+    // Cache response if cache key is provided by middleware
+    if (req.cacheKey && req.cacheTTL) {
+      await setCacheResponse(res, data, req.cacheKey, req.cacheTTL);
+    }
+    
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
