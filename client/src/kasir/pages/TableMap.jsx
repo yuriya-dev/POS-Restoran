@@ -6,17 +6,15 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../../shared/components/common/ConfirmModal';
 
-// Helper untuk menghitung durasi (Menit/Jam)
+// Helper duration tetap sama...
 const getDuration = (startTime) => {
     if (!startTime) return '';
     const start = new Date(startTime);
     const now = new Date();
     const diffMs = now - start;
-    
     const diffMins = Math.floor(diffMs / 60000);
     const hours = Math.floor(diffMins / 60);
     const mins = diffMins % 60;
-
     if (hours > 0) return `${hours}j ${mins}m`;
     return `${mins} mnt`;
 };
@@ -24,13 +22,11 @@ const getDuration = (startTime) => {
 const TableMap = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    
     const [tables, setTables] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    // Modal State
     const [isClearModalOpen, setIsClearModalOpen] = useState(false);
     const [tableToClear, setTableToClear] = useState(null);
     const [isClearing, setIsClearing] = useState(false);
@@ -43,12 +39,55 @@ const TableMap = () => {
 
     const fetchTables = async () => {
         try {
-            const res = await api.getTables();
-            const sorted = (res.data || []).sort((a, b) => 
+            let dataMeja = [];
+
+            // 1. Coba Ambil dari API
+            try {
+                const res = await api.getTables();
+                dataMeja = res.data || [];
+                localStorage.setItem('cached_tables', JSON.stringify(dataMeja));
+            } catch (err) {
+                // 2. Fallback ke Cache jika Offline
+                const cached = localStorage.getItem('cached_tables');
+                if (cached) {
+                    dataMeja = JSON.parse(cached);
+                } else {
+                    throw err;
+                }
+            }
+
+            // 3. ✅ CEK TRANSAKSI OFFLINE (OVERRIDE STATUS)
+            // Ambil order offline yang belum sync
+            const offlineOrders = JSON.parse(localStorage.getItem('offline_orders') || '[]');
+            
+            // Buat Set ID Meja yang dipakai di offline orders
+            const offlineOccupiedTableIds = new Set(
+                offlineOrders
+                    .filter(o => o.table_id) // Pastikan ada table_id
+                    .map(o => String(o.table_id)) // Konversi ke string biar aman
+            );
+
+            // Modifikasi dataMeja: Jika ID ada di offlineOccupied, ubah jadi occupied
+            const mergedTables = dataMeja.map(t => {
+                if (offlineOccupiedTableIds.has(String(t.table_id))) {
+                    return {
+                        ...t,
+                        status: 'occupied',
+                        // Gunakan waktu lokal order offline sbg waktu mulai
+                        occupied_at: offlineOrders.find(o => String(o.table_id) === String(t.table_id))?.savedAt || new Date().toISOString()
+                    };
+                }
+                return t;
+            });
+
+            // Sortir
+            const sorted = mergedTables.sort((a, b) => 
                 a.number.localeCompare(b.number, undefined, { numeric: true })
             );
             setTables(sorted);
+
         } catch (error) {
+            console.error(error);
             toast.error("Gagal memuat data meja");
         } finally {
             setLoading(false);
@@ -68,6 +107,17 @@ const TableMap = () => {
 
     const confirmClear = async () => {
         if (!tableToClear) return;
+        
+        // Jika ini meja offline, kita harus hapus dari antrian offline_orders juga
+        // Tapi logikanya, jika kasir membersihkan meja, berarti order dianggap selesai.
+        // Namun API clearTable butuh koneksi.
+        
+        if (!navigator.onLine) {
+            toast.error("Tidak bisa update status meja saat Offline!");
+            setIsClearModalOpen(false);
+            return;
+        }
+
         setIsClearing(true);
         const toastId = toast.loading("Mengupdate meja...");
         try {
@@ -85,7 +135,6 @@ const TableMap = () => {
 
     const filteredTables = tables.filter(t => filter === 'all' || t.type === filter);
 
-    // Variasi Desain Kartu berdasarkan Status (Updated for Dark Mode & Blue Theme)
     const getCardStyle = (status) => {
         switch(status) {
             case 'occupied': 
@@ -93,7 +142,6 @@ const TableMap = () => {
             case 'reserved': 
                 return 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200';
             default: 
-                // Available
                 return 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-xl hover:shadow-blue-100/50 dark:hover:shadow-none group-hover:-translate-y-1'; 
         }
     };
@@ -127,7 +175,7 @@ const TableMap = () => {
             </div>
 
             {/* Grid Meja */}
-            <main className="flex-grow px-8 py-8 overflow-y-auto custom-scrollbar">
+            <main className="flex-grow px-8 pb-8 pt-3 overflow-y-auto custom-scrollbar">
                 {loading ? (
                     <div className="flex flex-col justify-center items-center h-64 text-gray-400 dark:text-gray-500 space-y-3">
                         <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
@@ -220,7 +268,6 @@ const TableMap = () => {
                 onClose={() => !isClearing && setIsClearModalOpen(false)}
                 onConfirm={confirmClear}
                 title="Pelanggan Pulang?"
-                // ✅ FIX: Gunakan Template Literal String agar terbaca di Modal standar
                 message={`Apakah meja "${tableToClear?.number}" sudah kosong dan siap digunakan kembali?`}
                 confirmText={isClearing ? "Memproses..." : "Ya, Bersihkan"}
                 confirmButtonClass="bg-blue-600 hover:bg-blue-700 text-white w-full justify-center"

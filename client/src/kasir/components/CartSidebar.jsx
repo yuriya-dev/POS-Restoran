@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Trash2, Plus, Minus, ShoppingCart, CreditCard, Wallet, Banknote, ChevronRight, Printer, Check, NotepadText, Save, X, Receipt as ReceiptIcon, ChevronUp, Loader2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Trash2, Plus, Minus, ShoppingCart, CreditCard, Wallet, Banknote, ChevronRight, Printer, Check, NotepadText, WifiOff, X, Receipt as ReceiptIcon, ChevronUp, Loader2, AlertTriangle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useSettings } from '../../shared/context/SettingsContext';
 import { formatCurrency } from '../../shared/utils/helpers';
@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { usePDF } from 'react-to-pdf';
 import { Receipt } from './Receipt';
+import ConfirmModal from '../../shared/components/common/ConfirmModal'; // ✅ Import Modal Konfirmasi
 
 const CartSidebar = () => {
     const { cartItems, addToCart, decreaseQty, removeFromCart, updateNotes, cartTotals, clearCart, selectedTable } = useCart();
@@ -18,11 +19,13 @@ const CartSidebar = () => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [orderSuccessData, setOrderSuccessData] = useState(null);
     
-    // State untuk Tampilan Mobile
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     
     const [editingNoteId, setEditingNoteId] = useState(null);
     const [tempNote, setTempNote] = useState('');
+
+    // State untuk Penanganan Stok Habis
+    const [stockErrorModal, setStockErrorModal] = useState({ isOpen: false, message: '', itemId: null, neededQty: 0, itemName: '' });
 
     const navigate = useNavigate();
     const { toPDF, targetRef } = usePDF({filename: `struk_${new Date().getTime()}.pdf`});
@@ -35,13 +38,67 @@ const CartSidebar = () => {
     };
 
     const saveNote = (itemId) => {
-        updateNotes(itemId, tempNote);
+        const cleanNote = tempNote.trim();
+        updateNotes(itemId, cleanNote);
         setEditingNoteId(null);
     };
 
     const cancelEditNote = () => {
         setEditingNoteId(null);
         setTempNote('');
+    };
+
+    const saveOrderOffline = (payload) => {
+        const existingOrders = JSON.parse(localStorage.getItem('offline_orders') || '[]');
+        
+        const offlineOrder = {
+            ...payload,
+            tempId: Date.now(),
+            isOffline: true,
+            savedAt: new Date().toISOString(),
+            serviceCharge: cartTotals.serviceCharge,
+            packagingFee: cartTotals.packaging,
+        };
+
+        localStorage.setItem('offline_orders', JSON.stringify([...existingOrders, offlineOrder]));
+
+        toast("Internet Mati. Disimpan di perangkat.", {
+            icon: <WifiOff className="w-5 h-5 text-orange-500" />,
+            style: { borderRadius: '10px', background: '#333', color: '#fff' },
+            duration: 4000
+        });
+
+        setOrderSuccessData({
+            ...offlineOrder,
+            orderId: `OFF-${offlineOrder.tempId}`,
+            dailyNumber: 'OFF',
+            date: new Date().toISOString(),
+            cashier: 'Offline'
+        });
+
+        clearCart();
+        setIsMobileOpen(false);
+    };
+
+    // Handler untuk memaksa update stok jika dapur konfirmasi ada
+    const handleForceStockUpdate = async () => {
+        const { itemId, neededQty, itemName } = stockErrorModal;
+        const toastId = toast.loading(`Mengupdate stok ${itemName}...`);
+        
+        try {
+            // Update stok di server menjadi jumlah yang dibutuhkan + buffer 5
+            await api.updateMenuItem(itemId, { stock: neededQty + 5 });
+            
+            toast.success("Stok diperbarui!", { id: toastId });
+            setStockErrorModal({ ...stockErrorModal, isOpen: false });
+            
+            // Coba checkout lagi otomatis
+            handleCheckout();
+        } catch (error) {
+            console.error(error);
+            toast.error("Gagal update stok. Hubungi Admin.", { id: toastId });
+            setStockErrorModal({ ...stockErrorModal, isOpen: false });
+        }
     };
 
     const handleCheckout = async () => {
@@ -53,29 +110,33 @@ const CartSidebar = () => {
         }
 
         setIsProcessing(true);
+
+        const user = JSON.parse(localStorage.getItem('pos_kasir_user'));
+        
+        const payload = {
+            table_id: selectedTable, 
+            userId: user?.userId,
+            orderName: `Meja ${selectedTable}`,
+            status: 'paid',
+            paymentMethod: paymentMethod,
+            subtotal: cartTotals.subtotal,
+            taxAmount: cartTotals.tax,
+            totalAmount: cartTotals.total,
+            cashReceived: paymentMethod === 'cash' ? Number(cashReceived) : cartTotals.total,
+            changeGiven: paymentMethod === 'cash' ? changeGiven : 0,
+            items: cartItems.map(item => ({
+                itemId: item.itemId, name: item.name, price: item.price, quantity: item.quantity, 
+                notes: (item.notes || '').trim() // ✅ Trim notes saat kirim
+            }))
+        };
+
+        if (!navigator.onLine) {
+            saveOrderOffline(payload);
+            setIsProcessing(false);
+            return;
+        }
+
         try {
-            const user = JSON.parse(localStorage.getItem('pos_kasir_user'));
-
-            const payload = {
-                table_id: selectedTable, 
-                userId: user?.userId,
-                orderName: `Meja ${selectedTable}`,
-                status: 'paid',
-                paymentMethod: paymentMethod,
-                subtotal: cartTotals.subtotal,
-                taxAmount: cartTotals.tax,
-                totalAmount: cartTotals.total,
-                cashReceived: paymentMethod === 'cash' ? Number(cashReceived) : cartTotals.total,
-                changeGiven: paymentMethod === 'cash' ? changeGiven : 0,
-                items: cartItems.map(item => ({
-                    itemId: item.itemId,
-                    name: item.name,
-                    price: item.price,
-                    quantity: item.quantity,
-                    notes: item.notes || ''
-                }))
-            };
-
             const res = await api.createOrder(payload);
             
             setOrderSuccessData({
@@ -90,10 +151,42 @@ const CartSidebar = () => {
             
             toast.success("Transaksi Berhasil!");
             clearCart(); 
-
         } catch (error) {
-            console.error(error);
-            toast.error("Gagal memproses pesanan.");
+            console.error("Checkout Error:", error);
+            
+            const errorMsg = error.response?.data?.message || error.message;
+
+            // ✅ DETEKSI ERROR STOK (DIPERBAIKI)
+            // Cek status 400 dan pesan mengandung 'stok'
+            if (error.response?.status === 400 && errorMsg.toLowerCase().includes('stok')) {
+                // 1. Coba cari item spesifik dari pesan error
+                let problematicItem = cartItems.find(item => 
+                    errorMsg.toLowerCase().includes(item.name.toLowerCase())
+                );
+                
+                // 2. Fallback: Jika pesan generic (misal "Stok habis!"), ambil item pertama di cart
+                // Asumsinya jika hanya 1 item, pasti itu penyebabnya. Jika banyak, ambil yang pertama dulu.
+                if (!problematicItem && cartItems.length > 0) {
+                     problematicItem = cartItems[0];
+                }
+                
+                if (problematicItem) {
+                    setStockErrorModal({
+                        isOpen: true,
+                        message: errorMsg,
+                        itemId: problematicItem.itemId,
+                        itemName: problematicItem.name,
+                        neededQty: problematicItem.quantity
+                    });
+                } else {
+                    toast.error(errorMsg);
+                }
+            } 
+            else if (error.code === "ERR_NETWORK" || error.message === "Network Error") {
+                saveOrderOffline(payload);
+            } else {
+                toast.error("Gagal memproses pesanan: " + errorMsg);
+            }
         } finally {
             setIsProcessing(false);
         }
@@ -111,21 +204,32 @@ const CartSidebar = () => {
         return (
             <div className={`fixed inset-0 z-50 bg-white dark:bg-gray-900 lg:static lg:w-[400px] lg:border-l lg:border-gray-200 dark:lg:border-gray-700 lg:shadow-2xl flex flex-col h-full p-8 items-center justify-center transition-colors duration-200 ${isMobileOpen ? 'flex' : 'hidden lg:flex'}`}>
                 <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-6 animate-bounce">
-                    <Check className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+                    {orderSuccessData.isOffline ? (
+                        <WifiOff className="w-10 h-10 text-orange-600 dark:text-orange-400" />
+                    ) : (
+                        <Check className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+                    )}
                 </div>
-                <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-2">Pembayaran Sukses!</h2>
-                <p className="text-gray-500 dark:text-gray-400 mb-8 font-medium">Order #{orderSuccessData.dailyNumber || orderSuccessData.orderId}</p>
+                <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-2 text-center">
+                    {orderSuccessData.isOffline ? 'Disimpan Offline' : 'Pembayaran Sukses!'}
+                </h2>
+                <p className="text-gray-500 dark:text-gray-400 mb-8 font-medium text-center">
+                    {orderSuccessData.isOffline 
+                        ? 'Data akan disinkronkan saat online.' 
+                        : `Order #${orderSuccessData.dailyNumber || orderSuccessData.orderId}`
+                    }
+                </p>
                 
-                <div style={{ position: 'absolute', top: '-9999px' }}>
+                <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
                     <Receipt ref={targetRef} data={orderSuccessData} />
                 </div>
 
                 <div className="w-full space-y-4">
-                    <button onClick={() => toPDF()} className="w-full py-4 bg-gray-900 dark:bg-gray-700 text-white rounded-2xl font-bold flex items-center justify-center hover:bg-black dark:hover:bg-gray-600 transition shadow-lg hover:shadow-xl">
+                    <button onClick={() => toPDF()} className="w-full py-4 bg-gray-900 dark:bg-gray-700 text-white rounded-2xl font-bold flex items-center justify-center hover:bg-black dark:hover:bg-gray-600 transition shadow-lg hover:shadow-xl active:scale-95">
                         <Printer className="w-5 h-5 mr-3" /> Cetak Struk
                     </button>
-                    <button onClick={finishOrder} className="w-full py-4 bg-gray-100 dark:bg-blue-600 text-gray-700 dark:text-gray-200 rounded-2xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition">
-                        Kembali ke Meja
+                    <button onClick={finishOrder} className="w-full py-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-2xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition active:scale-95">
+                        {orderSuccessData.isOffline ? 'Kembali ke Menu' : 'Selesai & Kembali'}
                     </button>
                 </div>
             </div>
@@ -135,7 +239,7 @@ const CartSidebar = () => {
     // --- MODE UTAMA (KERANJANG) ---
     return (
         <>
-            {/* 1. MOBILE SUMMARY BAR (Sticky Bottom di Mobile) */}
+            {/* 1. MOBILE SUMMARY BAR */}
             {!isMobileOpen && (
                 <div 
                     className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-40 flex items-center justify-between cursor-pointer transition-colors duration-200"
@@ -161,7 +265,7 @@ const CartSidebar = () => {
                 </div>
             )}
 
-            {/* 2. OVERLAY BACKGROUND (Mobile Only) */}
+            {/* 2. OVERLAY BACKGROUND */}
             {isMobileOpen && (
                 <div 
                     className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
@@ -169,15 +273,14 @@ const CartSidebar = () => {
                 />
             )}
 
-            {/* 3. SIDEBAR CONTAINER (Responsive) */}
-            {/* Mobile: Fixed Bottom Sheet. Desktop: Static Sidebar Full Height */}
+            {/* 3. SIDEBAR CONTAINER */}
             <div className={`
                 fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-gray-900 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl rounded-t-[2rem] lg:rounded-none
                 lg:static lg:inset-auto lg:w-[420px] lg:h-full lg:border-l lg:border-gray-200 dark:lg:border-gray-700 lg:translate-y-0 lg:shadow-none
                 ${isMobileOpen ? 'h-[85vh] translate-y-0' : 'translate-y-full h-0 lg:h-full'}
             `}>
                 
-                {/* Header Cart - Fixed Top (shrink-0) */}
+                {/* Header Cart - Fixed Top */}
                 <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between rounded-t-[2rem] lg:rounded-none shrink-0 z-10 relative transition-colors duration-200">
                     <div className="flex items-center gap-3">
                         <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-xl">
@@ -192,17 +295,13 @@ const CartSidebar = () => {
                         <span className="bg-gray-900 dark:bg-gray-700 text-white dark:text-gray-200 text-xs px-3 py-1.5 rounded-full font-bold">
                             {cartItems.length} Item
                         </span>
-                        {/* Tombol Close di Mobile */}
-                        <button 
-                            onClick={() => setIsMobileOpen(false)}
-                            className="lg:hidden p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                        >
+                        <button onClick={() => setIsMobileOpen(false)} className="lg:hidden p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
                 </div>
 
-                {/* List Items (Scrollable Area) */}
+                {/* List Items */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-gray-50/50 dark:bg-gray-800/50 relative">
                     {cartItems.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-gray-300 dark:text-gray-600 space-y-4 opacity-60">
@@ -248,7 +347,7 @@ const CartSidebar = () => {
                                         
                                         {/* Add Note Button */}
                                         {!item.notes && editingNoteId !== item.itemId && (
-                                            <button onClick={() => startEditingNote(item)} className="mt-1 text-[10px] text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
+                                            <button onClick={() => startEditingNote(item)} className="mt-1 text-[10px] text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1 transition-opacity">
                                                 <Plus className="w-3 h-3" /> Tambah Catatan
                                             </button>
                                         )}
@@ -279,7 +378,7 @@ const CartSidebar = () => {
                     )}
                 </div>
 
-                {/* Footer / Payment Section - Fixed Bottom */}
+                {/* Footer Payment */}
                 <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-6 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-black/20 z-20 shrink-0 transition-colors duration-200">
                     
                     {/* Payment Methods */}
@@ -329,7 +428,6 @@ const CartSidebar = () => {
                         </div>
                     )}
 
-                    {/* Summary Biaya */}
                     <div className="space-y-2 mb-6">
                         <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
                             <span>Subtotal</span>
@@ -351,7 +449,6 @@ const CartSidebar = () => {
                         </div>
                     </div>
 
-                    {/* Action Button */}
                     <button 
                         onClick={handleCheckout}
                         disabled={cartItems.length === 0 || isProcessing || (paymentMethod === 'cash' && changeGiven < 0)}
@@ -368,6 +465,31 @@ const CartSidebar = () => {
                 </div>
 
             </div>
+
+            {/* MODAL KONFIRMASI UPDATE STOK (DITAMBAHKAN) */}
+            <ConfirmModal
+                isOpen={stockErrorModal.isOpen}
+                onClose={() => setStockErrorModal({ ...stockErrorModal, isOpen: false })}
+                onConfirm={handleForceStockUpdate}
+                type="info"
+                title="Stok Sistem Habis"
+                message={
+                    <div className="text-center">
+                        <p className="mb-3 text-gray-600 dark:text-gray-300 leading-relaxed">
+                            {stockErrorModal.message}
+                        </p>
+                        <div className="text-sm font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 p-3 rounded-xl border border-blue-100 dark:border-blue-800 mb-2">
+                            Apakah dapur mengonfirmasi stok fisik masih tersedia?
+                        </div>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                            Jika "Ya", sistem akan otomatis menambah stok dan melanjutkan pesanan.
+                        </p>
+                    </div>
+                }
+                confirmText="Ya, Lanjutkan Order"
+                cancelText="Batal"
+                confirmButtonClass="bg-blue-600 hover:bg-blue-700 text-white w-full"
+            />
         </>
     );
 };

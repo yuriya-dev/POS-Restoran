@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../shared/services/api';
 import { usePDF } from 'react-to-pdf';
 import { Receipt } from '../components/Receipt';
-import { Printer, Search, CalendarClock, Eye, Loader2, ReceiptText, Filter } from 'lucide-react';
+import { Printer, Search, CalendarClock, Eye, Loader2, ReceiptText, WifiOff } from 'lucide-react'; // Tambah WifiOff
 import { formatCurrency } from '../../shared/utils/helpers';
 import Pagination from '../../shared/components/common/Pagination'; 
 import OrderDetailModal from '../../shared/components/common/OrderDetailModal';
@@ -26,22 +26,63 @@ const HistoryPage = () => {
 
     const fetchHistory = async () => {
         setLoading(true);
+        
+        let serverData = [];
+        let offlineData = [];
+
+        // 1. Ambil Data Offline (Transaksi yang belum di-sync)
         try {
-            const res = await api.getOrders(); // Mengambil semua order, nanti difilter di client atau backend
-            // Filter orders from today (Client side filtering untuk demo)
-            // Idealnya backend menyediakan endpoint /orders?date=today
+            const localPending = JSON.parse(localStorage.getItem('offline_orders') || '[]');
+            // Mapping agar strukturnya sama dengan data server
+            offlineData = localPending.map(o => ({
+                ...o,
+                orderId: `OFF-${o.tempId}`, // ID Sementara
+                dailyNumber: 'OFF',         // Penanda belum sync
+                createdAt: o.savedAt,       // Waktu simpan lokal
+                isOffline: true             // Flag khusus
+            }));
+        } catch (e) {
+            console.error("Gagal baca storage offline", e);
+        }
+
+        // 2. Ambil Data Server (Dengan Fallback Cache)
+        try {
+            const res = await api.getOrders();
+            serverData = res.data || [];
+            
+            // ✅ SUKSES: Update Cache untuk penggunaan offline nanti
+            localStorage.setItem('cached_history_orders', JSON.stringify(serverData));
+
+        } catch (error) {
+            console.warn("Gagal koneksi server, menggunakan cache lokal.");
+            
+            // ✅ ERROR/OFFLINE: Ambil dari Cache Server terakhir
+            const cachedServerData = localStorage.getItem('cached_history_orders');
+            if (cachedServerData) {
+                serverData = JSON.parse(cachedServerData);
+                
+                // Beri notifikasi jika user benar-benar offline
+                if (!navigator.onLine) {
+                    toast("Mode Offline: Menampilkan riwayat tersimpan", {
+                        icon: <WifiOff className="w-4 h-4 text-orange-500" />,
+                        style: { borderRadius: '10px', background: '#333', color: '#fff' },
+                    });
+                }
+            }
+        } finally {
+            // 3. Gabungkan & Filter Data (Hanya Hari Ini)
+            const allOrders = [...offlineData, ...serverData];
             const today = new Date().toDateString();
-            const todayOrders = (res.data || []).filter(order => {
+            
+            const todayOrders = allOrders.filter(order => {
                 const orderDate = new Date(order.createdAt).toDateString();
                 return orderDate === today;
             });
-            // Sort by newest first
+
+            // Sort: Terbaru di atas
             todayOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            
             setOrders(todayOrders);
-        } catch (error) {
-            console.error("Gagal load history", error);
-            toast.error("Gagal memuat riwayat transaksi");
-        } finally {
             setLoading(false);
         }
     };
@@ -74,8 +115,10 @@ const HistoryPage = () => {
         return filteredOrders.slice(firstIndex, lastIndex);
     }, [filteredOrders, currentPage, itemsPerPage]);
 
-    // Helper untuk Badge Status
-    const getStatusStyle = (status) => {
+    // Helper untuk Badge Status dengan Dark Mode
+    const getStatusStyle = (status, isOffline) => {
+        if (isOffline) return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800';
+        
         switch(status) {
             case 'paid': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800';
             case 'active': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800';
@@ -159,9 +202,19 @@ const HistoryPage = () => {
                                                     
                                                     {/* Info Order */}
                                                     <div className="col-span-4 w-full flex items-center gap-4">
-                                                        <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex flex-col items-center justify-center font-bold shrink-0 border border-blue-200 dark:border-blue-800">
-                                                            <span className="text-[10px] uppercase opacity-70">NO</span>
-                                                            <span className="text-lg leading-none">#{order.dailyNumber || '?'}</span>
+                                                        <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center font-bold shrink-0 border ${
+                                                            order.isOffline 
+                                                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-orange-200'
+                                                            : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+                                                        }`}>
+                                                            {order.isOffline ? (
+                                                                <WifiOff className="w-5 h-5" />
+                                                            ) : (
+                                                                <>
+                                                                    <span className="text-[10px] uppercase opacity-70">NO</span>
+                                                                    <span className="text-lg leading-none">#{order.dailyNumber || '?'}</span>
+                                                                </>
+                                                            )}
                                                         </div>
                                                         <div className="min-w-0">
                                                             <h3 className="font-bold text-gray-800 dark:text-gray-100 truncate">{order.orderName || 'Tanpa Nama'}</h3>
@@ -175,8 +228,8 @@ const HistoryPage = () => {
 
                                                     {/* Status Badge */}
                                                     <div className="col-span-3 w-full md:text-center flex md:justify-center">
-                                                        <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border ${getStatusStyle(order.status)}`}>
-                                                            {order.status}
+                                                        <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border ${getStatusStyle(order.status, order.isOffline)}`}>
+                                                            {order.isOffline ? 'Offline / Pending' : order.status}
                                                         </span>
                                                     </div>
 

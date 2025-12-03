@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Utensils, Plus, Edit, Trash2, Search, CheckCircle, XCircle, Package, Filter } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react'; 
+import { Utensils, Plus, Edit, Trash2, Search, CheckCircle, XCircle, Package, Filter, RefreshCw } from 'lucide-react'; // ✅ Tambah RefreshCw
 import toast from 'react-hot-toast';
 
 import Card from '../../shared/components/common/Card';
@@ -19,6 +19,25 @@ const MenuItems = () => {
     const [filterCategory, setFilterCategory] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
+    
+    // State untuk tombol refresh manual
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // ✅ FUNGSI REFRESH DATA
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            await Promise.all([
+                refreshData('menuItems'), // Tarik data menu terbaru (termasuk stok)
+                refreshData('categories')
+            ]);
+            // toast.success("Data stok diperbarui"); // Opsional: Aktifkan jika ingin notifikasi
+        } catch (error) {
+            console.error("Gagal refresh:", error);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
 
     // 1. Map Kategori (ID -> Nama)
     const categoryMap = useMemo(() => {
@@ -80,6 +99,24 @@ const MenuItems = () => {
         toast.success('Data menu berhasil diperbarui');
     };
     
+    // Komponen kecil untuk handle gambar aman
+    const SafeImage = ({ src, alt }) => {
+        const [error, setError] = useState(false);
+
+        if (error || !src) {
+            return <Utensils className="w-5 h-5 text-gray-400 dark:text-gray-500" />;
+        }
+
+        return (
+            <img 
+                src={src} 
+                alt={alt} 
+                className="w-full h-full object-cover"
+                onError={() => setError(true)} 
+            />
+        );
+    };
+
     // Definisi Kolom Tabel
     const columns = [
         { 
@@ -88,16 +125,7 @@ const MenuItems = () => {
             render: (name, item) => (
                 <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 flex-shrink-0 rounded overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center">
-                        {item.image_url ? (
-                            <img 
-                                src={item.image_url} 
-                                alt={name} 
-                                className="w-full h-full object-cover" 
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                            />
-                        ) : (
-                            <Utensils className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                        )}
+                        <SafeImage src={item.image_url} alt={name} />
                     </div>
                     <span className="font-semibold text-gray-800 dark:text-white">{name}</span>
                 </div>
@@ -121,7 +149,7 @@ const MenuItems = () => {
             header: 'Stok', 
             accessor: 'stock', 
             render: (val) => (
-                <div className={`flex items-center font-bold ${val < 10 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                <div className={`flex items-center font-bold ${val < 10 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                     <Package className="w-4 h-4 mr-1 text-gray-400 dark:text-gray-500" />
                     {val !== undefined ? val : 0}
                 </div>
@@ -157,7 +185,7 @@ const MenuItems = () => {
     ];
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 space-y-6 transition-colors duration-200 bg-gray-50 dark:bg-gray-900 min-h-screen">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-200">
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -171,21 +199,18 @@ const MenuItems = () => {
             <Card className="p-4 sm:p-6 dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
                     
-                    {/* Search & Filter Group */}
                     <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full md:w-auto flex-grow mr-4">
-                        {/* Search Bar */}
                         <div className="relative w-full sm:w-64">
                             <input
                                 type="text"
                                 placeholder="Cari menu..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg w-full text-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+                                className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg w-full text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                             />
                             <Search className="w-4 h-4 text-gray-400 dark:text-gray-500 absolute left-3 top-1/2 transform -translate-y-1/2" />
                         </div>
                         
-                        {/* Filter Kategori */}
                         <div className="relative w-full sm:w-48">
                             <select
                                 value={filterCategory}
@@ -201,18 +226,29 @@ const MenuItems = () => {
                         </div>
                     </div>
 
-                    {/* Button Tambah */}
-                    <Button 
-                        variant="primary" 
-                        onClick={() => { setSelectedItem(null); setIsFormOpen(true); }} 
-                        icon={<Plus className="w-5 h-5" />}
-                        className="w-full md:w-auto whitespace-nowrap"
-                    >
-                        Tambah Menu
-                    </Button>
+                    <div className="flex space-x-3">
+                        {/* ✅ TOMBOL REFRESH MANUAL */}
+                        <Button 
+                            variant="secondary" 
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            icon={<RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />}
+                            className="whitespace-nowrap"
+                        >
+                            Refresh
+                        </Button>
+
+                        <Button 
+                            variant="primary" 
+                            onClick={() => { setSelectedItem(null); setIsFormOpen(true); }} 
+                            icon={<Plus className="w-5 h-5" />}
+                            className="w-full md:w-auto whitespace-nowrap"
+                        >
+                            Tambah Menu
+                        </Button>
+                    </div>
                 </div>
 
-                {/* Table */}
                 <Table 
                     columns={columns} 
                     data={filteredItems} 
@@ -220,7 +256,6 @@ const MenuItems = () => {
                 />
             </Card>
 
-            {/* Modal Form */}
             <MenuItemForm
                 isOpen={isFormOpen}
                 onClose={() => setIsFormOpen(false)}
@@ -228,7 +263,6 @@ const MenuItems = () => {
                 onSave={handleSaveSuccess} 
             />
 
-            {/* Modal Konfirmasi Hapus */}
             <ConfirmModal
                 isOpen={isModalOpen}
                 onClose={() => !isDeleting && setIsModalOpen(false)}

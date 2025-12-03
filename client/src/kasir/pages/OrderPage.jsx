@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Search, Utensils, Grid, ChevronLeft, Loader2, Plus, ChefHat } from 'lucide-react';
+import { Search, Utensils, Grid, ChevronLeft, Loader2, Plus, ChefHat, WifiOff } from 'lucide-react'; // ✅ Tambah WifiOff
 import { api } from '../../shared/services/api';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../../shared/utils/helpers';
@@ -21,20 +21,46 @@ const OrderPage = () => {
     useEffect(() => {
         const loadData = async () => {
             try {
+                // 1. Coba ambil data dari Server (Online)
                 const [menuRes, catRes] = await Promise.all([
                     api.getMenuItems(),
                     api.getCategories()
                 ]);
                 
-                // Filter hanya menu yang tersedia
                 const availableMenu = (menuRes.data || []).filter(m => m.isAvailable);
+                
+                // Update State
                 setMenuItems(availableMenu);
                 setCategories(catRes.data || []);
                 
+                // ✅ SUKSES: Simpan data ke LocalStorage untuk cadangan Offline
+                localStorage.setItem('cached_menuItems', JSON.stringify(availableMenu));
+                localStorage.setItem('cached_categories', JSON.stringify(catRes.data || []));
+                
                 setSelectedTable(tableId);
+
             } catch (err) {
-                console.error(err);
-                toast.error("Gagal memuat menu");
+                console.warn("Gagal koneksi ke server, mencoba data offline...", err);
+
+                // ✅ ERROR/OFFLINE: Ambil data dari LocalStorage
+                const cachedMenu = localStorage.getItem('cached_menuItems');
+                const cachedCategories = localStorage.getItem('cached_categories');
+
+                if (cachedMenu && cachedCategories) {
+                    setMenuItems(JSON.parse(cachedMenu));
+                    setCategories(JSON.parse(cachedCategories));
+                    setSelectedTable(tableId);
+                    
+                    // Beri tahu user bahwa ini mode offline
+                    toast("Mode Offline: Menampilkan menu tersimpan", {
+                        icon: <WifiOff className="w-4 h-4 text-orange-500" />,
+                        style: { borderRadius: '10px', background: '#333', color: '#fff' },
+                        duration: 4000
+                    });
+                } else {
+                    // Jika tidak ada cache sama sekali
+                    toast.error("Gagal memuat menu. Periksa koneksi internet.");
+                }
             } finally {
                 setLoading(false);
             }
@@ -61,7 +87,7 @@ const OrderPage = () => {
                     <div className="flex items-center gap-4">
                         <button 
                             onClick={() => navigate('/')} 
-                            className="p-3 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-2xl transition-all text-gray-600 dark:text-gray-200 active:scale-95"
+                            className="p-3 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-2xl transition-all text-gray-600 dark:text-gray-200 active:scale-95 border border-transparent hover:border-gray-200 dark:hover:border-gray-500"
                         >
                             <ChevronLeft className="w-6 h-6" />
                         </button>
@@ -74,12 +100,12 @@ const OrderPage = () => {
                     {/* Search Bar */}
                     <div className="relative w-72 lg:w-96 group">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <Search className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                            <Search className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400 transition-colors" />
                         </div>
                         <input 
                             type="text" 
                             placeholder="Cari menu..." 
-                            className="block w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 focus:bg-white dark:focus:bg-gray-800 transition-all duration-300 font-medium shadow-inner"
+                            className="block w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 focus:bg-white dark:focus:bg-gray-800 transition-all duration-300 font-medium shadow-inner"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -87,10 +113,10 @@ const OrderPage = () => {
                 </div>
 
                 {/* Kategori Tabs */}
-                <div className="px-6 py-5 overflow-x-auto scrollbar-hide flex gap-3 bg-[#F5F7FA] dark:bg-gray-900 transition-colors">
+                <div className="px-6 py-5 overflow-x-auto flex gap-3 bg-[#F5F7FA] dark:bg-gray-900 transition-colors border-b border-gray-100 dark:border-gray-800 w-full">
                     <button
                         onClick={() => setSelectedCategory('all')}
-                        className={`px-6 py-3 rounded-2xl text-sm font-bold whitespace-nowrap transition-all duration-200 flex items-center gap-2 shadow-sm active:scale-95
+                        className={`px-6 py-3 rounded-2xl text-sm font-bold whitespace-nowrap transition-all duration-200 flex items-center gap-2 shadow-sm active:scale-95 shrink-0
                             ${selectedCategory === 'all' 
                                 ? 'bg-blue-600 text-white shadow-blue-200 dark:shadow-none' 
                                 : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-transparent hover:border-gray-200 dark:hover:border-gray-700'
@@ -102,7 +128,7 @@ const OrderPage = () => {
                         <button
                             key={cat.categoryId}
                             onClick={() => setSelectedCategory(cat.categoryId)}
-                            className={`px-6 py-3 rounded-2xl text-sm font-bold whitespace-nowrap transition-all duration-200 flex items-center gap-2 shadow-sm active:scale-95
+                            className={`px-6 py-3 rounded-2xl text-sm font-bold whitespace-nowrap transition-all duration-200 flex items-center gap-2 shadow-sm active:scale-95 shrink-0
                                 ${selectedCategory === cat.categoryId 
                                     ? 'bg-blue-600 text-white shadow-blue-200 dark:shadow-none' 
                                     : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-transparent hover:border-gray-200 dark:hover:border-gray-700'
@@ -121,7 +147,7 @@ const OrderPage = () => {
                             <p className="font-medium">Menyiapkan daftar menu...</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-5">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-5 mt-6">
                             {filteredMenu.map(item => (
                                 <div 
                                     key={item.itemId} 
@@ -155,7 +181,7 @@ const OrderPage = () => {
                                                 {formatCurrency(item.price).replace('Rp', '')}
                                             </p>
                                             
-                                            {/* Tombol + (Selalu Terlihat untuk Tablet) */}
+                                            {/* Tombol + (Selalu Terlihat & Modern) */}
                                             <button 
                                                 className="w-9 h-9 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 dark:hover:bg-blue-400 hover:text-white dark:hover:text-white transition-all duration-300 active:scale-90"
                                             >
