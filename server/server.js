@@ -15,12 +15,8 @@ try {
 // CORS Configuration
 // Daftar domain/origin yang diizinkan mengakses server
 const allowedOrigins = [
+  'https://pos-kasir.vercel.app',
   'http://localhost:5173',
-  'http://localhost:5174',
-  'https://pos-admin.vercel.app',
-  'https://pos-kasir.vercel.app'
-  // 'http://127.0.0.1:5173', 
-  // 'http://127.0.0.1:5174'
 ];
 
 app.use(cors({
@@ -63,13 +59,16 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message });
 });
 
-const PORT = process.env.PORT || 5001;
-app.listen(PORT, async () => {
-  console.log(`Server berjalan di port ${PORT}`);
-  
-  // Warm up cache saat server startup
-  if (redisClient) {
-    const { warmCache } = require('./utils/cacheWarming');
-    await warmCache();
-  }
-});
+if (require.main === module) {
+    const PORT = process.env.PORT || 5001;
+    app.listen(PORT, async () => {
+        console.log(`Server berjalan di port ${PORT}`);
+        
+        if (redisClient) {
+            const { warmCache } = require('./utils/cacheWarming');
+            await warmCache();
+        }
+    });
+}
+
+module.exports = app;
