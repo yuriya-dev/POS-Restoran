@@ -2,15 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://pos-server-xyz.vercel.app/api/$1"
-    },
-    {
-      "source": "/kasir",
-      "destination": "https://pos-kasir-xyz.vercel.app/kasir"
-    },
-    {
-      "source": "/kasir/(.*)",
-      "destination": "https://pos-kasir-xyz.vercel.app/kasir/$1"
+      "destination": "pos-server-eight.vercel.app/api/$1"
     },
     {
       "source": "/(.*)",

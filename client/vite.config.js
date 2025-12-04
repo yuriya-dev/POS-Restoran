@@ -27,11 +27,8 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // Pola URL yang ingin dicache
         runtimeCaching: [
           {
-            // Cache endpoint API (Menu, Kategori, Meja, Settings)
-            // Agar saat offline, kasir masih bisa load menu
             urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
             handler: 'NetworkFirst', // Coba internet dulu, kalau mati baru ambil cache
             options: {
@@ -52,4 +49,5 @@ export default defineConfig({
   css: {
     postcss: 'postcss.config.js',
   },
+  base: '/', 
 });
