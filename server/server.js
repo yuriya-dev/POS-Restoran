@@ -15,7 +15,7 @@ try {
 // CORS Configuration
 // Daftar domain/origin yang diizinkan mengakses server
 const allowedOrigins = [
-  'https://pos-kasir.vercel.app',
+  'https://pos-restoran.vercel.app',
 ];
 
 app.use(cors({
