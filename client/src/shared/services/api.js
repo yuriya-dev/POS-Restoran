@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Ganti URL sesuai port server Express Anda (biasanya 5000)
 const API = axios.create({
-  baseURL: 'http://localhost:5001/api', 
+  baseURL: 'http://pos-server-eight.vercel.app/api', 
 });
 
 // ✅ TAMBAHAN PENTING: Request Interceptor
