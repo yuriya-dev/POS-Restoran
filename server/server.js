@@ -15,8 +15,7 @@ try {
 // CORS Configuration
 // Daftar domain/origin yang diizinkan mengakses server
 const allowedOrigins = [
-  'https://pos-kasir.vercel.app',
-  'http://localhost:5173',
+  'https://pos-server-eight.vercel.app',
 ];
 
 app.use(cors({
