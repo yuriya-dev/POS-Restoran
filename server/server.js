@@ -58,16 +58,13 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message });
 });
 
-if (require.main === module) {
-    const PORT = process.env.PORT || 5001;
-    app.listen(PORT, async () => {
-        console.log(`Server berjalan di port ${PORT}`);
-        
-        if (redisClient) {
-            const { warmCache } = require('./utils/cacheWarming');
-            await warmCache();
-        }
-    });
-}
-
-module.exports = app;
+const PORT = process.env.PORT || 5001;
+app.listen(PORT, async () => {
+  console.log(`Server berjalan di port ${PORT}`);
+  
+  // Warm up cache saat server startup
+  if (redisClient) {
+    const { warmCache } = require('./utils/cacheWarming');
+    await warmCache();
+  }
+});
