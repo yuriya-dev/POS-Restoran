@@ -1,33 +1,21 @@
-const redis = require('redis');
+const { Redis } = require('@upstash/redis');
+require('dotenv').config();
 
-// Create Redis client
-const client = redis.createClient({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: process.env.REDIS_PORT || 6379,
-    password: process.env.REDIS_PASSWORD || undefined,
-    database: process.env.REDIS_DB || 0,
-});
+let redis = null;
 
-// Handle connection events
-client.on('connect', () => {
-    console.log('✅ Redis Client Connected');
-});
+// Cek kredensial sebelum inisialisasi
+if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    console.log("✅ Menginisialisasi Upstash Redis...");
+    
+    redis = new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
+} else {
+    // Jangan error, cukup berikan peringatan dan jalan tanpa cache
+    console.warn("⚠️ Upstash Redis Credentials tidak ditemukan. Cache akan non-aktif.");
+    // Return null atau mock object agar aplikasi tidak crash
+    redis = null;
+}
 
-client.on('error', (err) => {
-    console.error('❌ Redis Client Error:', err);
-});
-
-client.on('ready', () => {
-    console.log('✅ Redis Client Ready');
-});
-
-client.on('end', () => {
-    console.log('⚠️ Redis Client Disconnected');
-});
-
-// Connect to Redis
-client.connect().catch(err => {
-    console.error('Failed to connect to Redis:', err);
-});
-
-module.exports = client;
+module.exports = redis;
