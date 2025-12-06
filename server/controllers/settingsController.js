@@ -2,30 +2,29 @@ const supabase = require('../config/supabase');
 
 exports.getSettings = async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('*, editor:users!settings_updatedBy_fkey(fullName, username)') 
-      .single();
+    
+    let query = supabase.from('settings').select('*, editor:users(fullName, username)');
+    
+    const { data, error } = await query.single();
 
-    // Jika error selain "Row not found"
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error) {
+        console.warn("Gagal join user di settings, mengambil data mentah...", error.message);
+        const { data: rawData, error: rawError } = await supabase.from('settings').select('*').single();
+        
+        if (rawError && rawError.code !== 'PGRST116') throw rawError;
+        
+        return res.json(rawData || { restaurantName: 'Restoran Default', taxRate: 0.1 });
+    }
 
-    // Default value jika data kosong
-    const finalSettings = data || {
-      restaurantName: 'Restoran Default',
-      receiptInfo: 'Info Struk',
-      taxRate: 0.1
-    };
-
-    res.json(finalSettings);
+    res.json(data);
   } catch (err) {
+    console.error("Settings Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
 exports.updateSettings = async (req, res) => {
   try {
-    // Ambil User ID dari Header (dikirim oleh interceptor frontend)
     const userId = req.headers['x-user-id']; 
 
     if (!userId) {
@@ -38,31 +37,18 @@ exports.updateSettings = async (req, res) => {
         updated_at: new Date().toISOString()
     };
 
-    // Hapus properti 'editor' jika ada di body agar tidak error saat save
     delete updates.editor; 
 
-    // Cek apakah row sudah ada
-    const { data: existing } = await supabase
-      .from('settings')
-      .select('configId')
-      .eq('configId', 'default')
-      .single();
+    const { data: existing } = await supabase.from('settings').select('configId').eq('configId', 'default').single();
 
     let result;
     
     if (!existing) {
-      const { data, error } = await supabase
-        .from('settings')
-        .insert([{ ...updates, configId: 'default' }])
-        .select();
+      const { data, error } = await supabase.from('settings').insert([{ ...updates, configId: 'default' }]).select();
       if (error) throw error;
       result = data;
     } else {
-      const { data, error } = await supabase
-        .from('settings')
-        .update(updates)
-        .eq('configId', 'default')
-        .select();
+      const { data, error } = await supabase.from('settings').update(updates).eq('configId', 'default').select();
       if (error) throw error;
       result = data;
     }
