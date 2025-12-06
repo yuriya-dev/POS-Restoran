@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "pos-server-eight.vercel.app/api/$1"
+      "destination": "[https://pos-restoran.onrender.com/api/$1](https://pos-server.onrender.com/api/$1)" 
     },
     {
       "source": "/(.*)",
