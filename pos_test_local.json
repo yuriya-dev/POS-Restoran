@@ -1,0 +1,674 @@
+{
+	"info": {
+		"_postman_id": "pos-resto-suite-v1-local",
+		"name": "POS Restoran API Test Suite (Local)",
+		"description": "Koleksi pengujian end-to-end untuk Sistem POS. Mencakup Auth, Master Data, Transaksi, Shift, dan Settings dengan skenario Positif dan Negatif.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Auth & Users",
+			"item": [
+				{
+					"name": "[POS] Register Admin",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"if(pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set(\"user_id\", jsonData.userId);",
+									"    pm.collectionVariables.set(\"test_username\", jsonData.username);",
+									"    console.log(\"User Created: \" + jsonData.username);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admin_{{$randomInt}}\",\n  \"password\": \"123456\",\n  \"fullName\": \"Super Admin Tester\",\n  \"role\": \"admin\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						}
+					}
+				},
+				{
+					"name": "[NEG] Register Duplicate",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 400 (Duplicate)\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test(\"Error message is correct\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.message).to.include(\"sudah digunakan\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"{{test_username}}\",\n  \"password\": \"123456\",\n  \"fullName\": \"Copycat\",\n  \"role\": \"admin\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						}
+					}
+				},
+				{
+					"name": "[POS] Login Success",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"{{test_username}}\", \n  \"password\": \"123456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						}
+					}
+				},
+				{
+					"name": "[NEG] Login Failed",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"{{test_username}}\", \n  \"password\": \"WRONG_PASSWORD\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Master Data",
+			"item": [
+				{
+					"name": "[POS] Create Category",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.collectionVariables.set(\"category_id\", jsonData.categoryId);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Test Cat {{$randomInt}}\",\n    \"icon\": \"Utensils\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/categories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"categories"
+							]
+						}
+					}
+				},
+				{
+					"name": "[POS] Create Menu Item (Limited Stock)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.collectionVariables.set(\"menu_id\", jsonData.itemId);",
+									"console.log(\"Menu Created with Stock: 5\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Limited Menu {{$randomInt}}\",\n    \"price\": 15000,\n    \"category\": {{category_id}},\n    \"stock\": 5,\n    \"isAvailable\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/menu-items",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"menu-items"
+							]
+						}
+					}
+				},
+				{
+					"name": "[POS] Create Table",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.collectionVariables.set(\"table_id\", jsonData.table_id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"number\": \"T-{{$randomInt}}\",\n    \"capacity\": 4,\n    \"type\": \"dine_in\",\n    \"status\": \"available\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/tables",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"tables"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Shift Management",
+			"item": [
+				{
+					"name": "[POS] Start Shift",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if(jsonData.success) {",
+									"    pm.collectionVariables.set(\"shift_id\", jsonData.data.shiftId);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": {{user_id}},\n    \"startCash\": 200000\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/shifts/start",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"shifts",
+								"start"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Transactions (Orders)",
+			"item": [
+				{
+					"name": "[POS] Create Order (Success)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"pm.collectionVariables.set(\"order_id\", jsonData.orderId);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": {{user_id}},\n  \"table_id\": {{table_id}},\n  \"orderName\": \"Customer A\",\n  \"status\": \"paid\",\n  \"paymentMethod\": \"cash\",\n  \"subtotal\": 30000,\n  \"taxAmount\": 3000,\n  \"totalAmount\": 33000,\n  \"items\": [\n    {\n      \"itemId\": {{menu_id}},\n      \"name\": \"Limited Menu\",\n      \"price\": 15000,\n      \"quantity\": 2,\n      \"notes\": \"Test Order\"\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/orders",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"orders"
+							]
+						}
+					}
+				},
+				{
+					"name": "[NEG] Create Order (Stock Insufficient)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 400 (Bad Request)\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test(\"Error message contains 'Stok'\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.message).to.include(\"Stok\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": {{user_id}},\n  \"table_id\": {{table_id}},\n  \"orderName\": \"Greedy Customer\",\n  \"items\": [\n    {\n      \"itemId\": {{menu_id}},\n      \"name\": \"Limited Menu\",\n      \"price\": 15000,\n      \"quantity\": 100,\n      \"notes\": \"This should fail\"\n    }\n  ],\n  \"totalAmount\": 1500000\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/orders",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"orders"
+							]
+						}
+					}
+				},
+				{
+					"name": "[POS] Kitchen View",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/orders/kitchen",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"orders",
+								"kitchen"
+							]
+						}
+					}
+				},
+				{
+					"name": "[POS] Complete Order",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/orders/{{order_id}}/complete",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"orders",
+								"{{order_id}}",
+								"complete"
+							]
+						}
+					}
+				},
+				{
+					"name": "[POS] Clear Table",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/tables/{{table_id}}/clear",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"tables",
+								"{{table_id}}",
+								"clear"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Settings",
+			"item": [
+				{
+					"name": "[POS] Update Settings",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "x-user-id",
+								"value": "{{user_id}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurantName\": \"Restoran Sukses {{$randomInt}}\",\n    \"taxRate\": 0.11,\n    \"serviceCharge\": 0.05\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/settings",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"settings"
+							]
+						}
+					}
+				},
+				{
+					"name": "[NEG] Update Settings (Unauthorized)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "x-user-id",
+								"value": "",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurantName\": \"Hacked Resto\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/settings",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"settings"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Closing",
+			"item": [
+				{
+					"name": "[POS] End Shift",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"shiftId\": {{shift_id}},\n    \"endCash\": 250000\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/shifts/end",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"shifts",
+								"end"
+							]
+						}
+					}
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5001",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "test_username",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "category_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "menu_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "table_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "order_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "shift_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
