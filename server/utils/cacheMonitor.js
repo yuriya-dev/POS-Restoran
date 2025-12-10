@@ -70,27 +70,16 @@ class CacheMonitor {
     async getCacheInfo() {
         try {
             const redisClient = require('../config/redis');
-            const info = await redisClient.info();
-            const lines = info.split('\r\n');
-            const result = {};
-            
-            lines.forEach(line => {
-                if (line && !line.startsWith('#')) {
-                    const [key, value] = line.split(':');
-                    if (key && value) {
-                        result[key] = value;
-                    }
-                }
-            });
+            if (!redisClient) return { status: 'Redis OFF' };
 
+            // Upstash does NOT support INFO
             return {
-                usedMemory: result.used_memory_human || 'N/A',
-                connectedClients: result.connected_clients || 'N/A',
-                totalCommandsProcessed: result.total_commands_processed || 'N/A',
-                uptime: result.uptime_in_seconds ? `${result.uptime_in_seconds}s` : 'N/A'
+                provider: 'Upstash',
+                connection: 'HTTP REST',
+                note: 'INFO command not available in Upstash'
             };
-        } catch (error) {
-            return { error: 'Unable to retrieve Redis info' };
+        } catch {
+            return { status: 'Unavailable' };
         }
     }
 
@@ -100,16 +89,16 @@ class CacheMonitor {
     async getKeysInfo() {
         try {
             const redisClient = require('../config/redis');
+            if (!redisClient) return { totalKeys: 0, keys: [] };
+
             const keys = await redisClient.keys('*');
-            
+
             const keysInfo = [];
             for (const key of keys) {
                 const ttl = await redisClient.ttl(key);
-                const type = await redisClient.type(key);
                 keysInfo.push({
                     key,
-                    ttl: ttl === -1 ? 'No expiry' : ttl === -2 ? 'Not exists' : `${ttl}s`,
-                    type
+                    ttl: ttl === -1 ? 'No expiry' : `${ttl}s`
                 });
             }
 
