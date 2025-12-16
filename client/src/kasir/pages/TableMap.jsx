@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../shared/services/api';
 import { useAuth } from '../../shared/context/AuthContext';
-import { LogOut, Utensils, User, Coffee, CheckCircle, Loader2, Clock, Armchair } from 'lucide-react';
+import { LogOut, User, Coffee, RefreshCw, Clock, Armchair } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../../shared/components/common/ConfirmModal';
@@ -177,9 +177,9 @@ const TableMap = () => {
             {/* Grid Meja */}
             <main className="flex-grow px-8 pb-8 pt-3 overflow-y-auto custom-scrollbar">
                 {loading ? (
-                    <div className="flex flex-col justify-center items-center h-64 text-gray-400 dark:text-gray-500 space-y-3">
-                        <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-                        <span className="font-medium">Memuat denah meja...</span>
+                    <div className="flex flex-col justify-center items-center h-[55vh] text-gray-400 dark:text-gray-500 bg-[#F5F7FA] dark:bg-gray-900 transition-colors">
+                        <RefreshCw className="w-10 h-10 animate-spin text-blue-500 mb-4" />
+                        <p className="font-medium">Memuat denah meja...</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
