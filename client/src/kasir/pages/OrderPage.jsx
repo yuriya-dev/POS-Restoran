@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Search, Utensils, Grid, ChevronLeft, Loader2, Plus, ChefHat, WifiOff } from 'lucide-react'; // ✅ Tambah WifiOff
+import { Search, Utensils, Grid, ChevronLeft, RefreshCw, Plus, ChefHat, WifiOff } from 'lucide-react'; // ✅ Tambah WifiOff
 import { api } from '../../shared/services/api';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../../shared/utils/helpers';
@@ -142,8 +142,8 @@ const OrderPage = () => {
                 {/* Grid Menu Items */}
                 <div className="flex-1 overflow-y-auto px-6 pb-32 custom-scrollbar">
                     {loading ? (
-                        <div className="flex flex-col justify-center items-center h-full text-gray-400 dark:text-gray-500 space-y-3">
-                            <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+                        <div className="flex flex-col justify-center items-center h-[55vh] text-gray-400 dark:text-gray-500 bg-[#F5F7FA] dark:bg-gray-900 transition-colors">
+                            <RefreshCw className="w-10 h-10 animate-spin text-blue-500 mb-4" />
                             <p className="font-medium">Menyiapkan daftar menu...</p>
                         </div>
                     ) : (

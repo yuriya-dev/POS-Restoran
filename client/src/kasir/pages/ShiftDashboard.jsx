@@ -4,7 +4,7 @@ import { api } from '../../shared/services/api';
 import { formatCurrency } from '../../shared/utils/helpers';
 import { 
     DollarSign, Lock, Unlock, Printer, TrendingUp, ShoppingBag, 
-    AlertTriangle, CheckCircle, BarChart3, Wallet 
+    RefreshCw, CheckCircle, BarChart3, Wallet 
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
@@ -116,8 +116,12 @@ const ShiftDashboard = () => {
 
     // --- RENDER UI ---
 
-    if (loading) return <div className="p-10 text-center text-gray-500 dark:text-gray-400">Memuat Data Shift...</div>;
-
+    if (loading) return (
+        <div className="flex flex-col justify-center items-center h-[80vh] text-gray-400 dark:text-gray-500 bg-[#F5F7FA] dark:bg-gray-900 transition-colors">
+            <RefreshCw className="w-10 h-10 animate-spin text-blue-500 mb-4" />
+            <p className="font-medium">Memuat data shift...</p>
+        </div>
+    );
     // CASE 1: TAMPILAN STRUK AKHIR (REPORT)
     if (shiftReport) {
         return (

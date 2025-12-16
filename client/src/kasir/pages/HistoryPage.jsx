@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../shared/services/api';
 import { usePDF } from 'react-to-pdf';
 import { Receipt } from '../components/Receipt';
-import { Printer, Search, CalendarClock, Eye, Loader2, ReceiptText, WifiOff } from 'lucide-react'; // Tambah WifiOff
+import { Printer, Search, CalendarClock, Eye, RefreshCw, ReceiptText, WifiOff } from 'lucide-react'; // Tambah WifiOff
 import { formatCurrency } from '../../shared/utils/helpers';
 import Pagination from '../../shared/components/common/Pagination'; 
 import OrderDetailModal from '../../shared/components/common/OrderDetailModal';
@@ -165,16 +165,16 @@ const HistoryPage = () => {
             {/* Content Area */}
             <main className="flex-grow px-8 pb-8 overflow-hidden flex flex-col">
                 {loading ? (
-                    <div className="flex flex-col justify-center items-center h-full text-gray-400 dark:text-gray-500 space-y-3">
-                        <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-                        <span className="font-medium">Memuat riwayat transaksi...</span>
+                    <div className="flex flex-col justify-center items-center h-[55vh] text-gray-400 dark:text-gray-500 bg-[#F5F7FA] dark:bg-gray-900 transition-colors">
+                        <RefreshCw className="w-10 h-10 animate-spin text-blue-500 mb-4" />
+                        <p className="font-medium">Memuat riwayat transaksi...</p>
                     </div>
                 ) : (
                     <div className="bg-white dark:bg-gray-800 rounded-[2rem] shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-full transition-colors duration-200">
                         
                         {/* Empty State */}
                         {filteredOrders.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 space-y-4">
+                            <div className="flex flex-col items-center justify-center h-96 text-gray-400 dark:text-gray-600 space-y-4">
                                 <div className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-full">
                                     <ReceiptText className="w-16 h-16 opacity-50" />
                                 </div>

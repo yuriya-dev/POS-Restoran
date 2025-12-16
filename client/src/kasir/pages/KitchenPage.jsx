@@ -109,7 +109,7 @@ const KitchenPage = () => {
     };
 
     if (loading) return (
-        <div className="flex flex-col justify-center items-center h-screen text-gray-400 dark:text-gray-500 bg-[#F5F7FA] dark:bg-gray-900 transition-colors">
+        <div className="flex flex-col justify-center items-center h-[80vh] text-gray-400 dark:text-gray-500 bg-[#F5F7FA] dark:bg-gray-900 transition-colors">
             <RefreshCw className="w-10 h-10 animate-spin text-blue-500 mb-4" />
             <p className="font-medium">Memuat Pesanan Dapur...</p>
         </div>
@@ -144,8 +144,8 @@ const KitchenPage = () => {
             {orders.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-96 text-gray-400 dark:text-gray-600 bg-white dark:bg-gray-800 rounded-[2rem] border border-dashed border-gray-200 dark:border-gray-700 shadow-sm">
                     <Utensils className="w-24 h-24 mb-4 opacity-20" />
-                    <p className="text-xl font-bold">Semua pesanan sudah selesai!</p>
-                    <p className="text-sm font-medium opacity-70">Menunggu pesanan baru masuk...</p>
+                    <p className="text-lg font-semibold text-gray-600 dark:text-gray-400">Semua pesanan sudah selesai!</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500">Menunggu pesanan baru masuk...</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
