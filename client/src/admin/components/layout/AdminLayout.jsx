@@ -10,6 +10,7 @@ const getTitle = (pathname) => {
         case 'menu': return 'Manajemen Menu Item';
         case 'categories': return 'Manajemen Kategori';
         case 'employees': return 'Manajemen Karyawan';
+        case 'tables': return 'Denah Meja';
         case 'reports': return 'Laporan Penjualan';
         case 'settings': return 'Pengaturan Restoran';
         default: return 'Halaman Admin';
