@@ -127,7 +127,7 @@ const KasirLayout = () => {
             
             {/* Header */}
             {!isOrderPage && (
-                <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-4 sticky top-0 z-40 shadow-sm transition-colors duration-200">
+                <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-4 sticky top-0 z-39 shadow-sm transition-colors duration-200">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
                             <button 
