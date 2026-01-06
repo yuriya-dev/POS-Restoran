@@ -53,7 +53,10 @@ const calculateMetrics = (orders) => {
     const totalTransactions = orders.length;
     const avgTransaction = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
     const totalCash = orders.filter(o => (o.paymentMethod || '').toLowerCase() === 'cash').reduce((acc, o) => acc + getVal(o.totalAmount), 0);
-    const totalNonCash = orders.filter(o => (o.paymentMethod || '').toLowerCase() !== 'cash').reduce((acc, o) => acc + getVal(o.totalAmount), 0);
+    const totalNonCash = orders.filter(o => {
+        const method = (o.paymentMethod || '').toLowerCase();
+        return method && method !== 'cash';
+    }).reduce((acc, o) => acc + getVal(o.totalAmount), 0);
     const paymentBreakdown = orders.reduce((acc, order) => { 
         const method = order.paymentMethod || 'Lainnya';
         acc[method] = (acc[method] || 0) + 1; 
