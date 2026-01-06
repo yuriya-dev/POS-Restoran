@@ -62,7 +62,16 @@ const calculateMetrics = (orders) => {
         acc[method] = (acc[method] || 0) + 1; 
         return acc; 
     }, {});
-    return { totalRevenue, totalTransactions, avgTransaction, totalCash, totalNonCash, paymentBreakdown };
+    // Breakdown hanya untuk metode non-cash
+    const paymentBreakdownNonCash = orders.filter(o => {
+        const method = (o.paymentMethod || '').toLowerCase();
+        return method && method !== 'cash';
+    }).reduce((acc, order) => { 
+        const method = order.paymentMethod;
+        acc[method] = (acc[method] || 0) + 1; 
+        return acc; 
+    }, {});
+    return { totalRevenue, totalTransactions, avgTransaction, totalCash, totalNonCash, paymentBreakdown, paymentBreakdownNonCash };
 };
 
 // --- KOMPONEN UTAMA ---
@@ -293,7 +302,7 @@ const Reports = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card title="Total Omzet" value={formatCurrency(metrics.totalRevenue)} icon={DollarSign} color="text-green-600" subText={`${formatCurrency(metrics.totalCash)} (Tunai)`} />
                     <Card title="Jumlah Transaksi" value={metrics.totalTransactions} icon={ShoppingCart} color="text-blue-600" subText={`Rata-rata: ${formatCurrency(metrics.avgTransaction)}`} />
-                    <Card title="Non-Tunai" value={formatCurrency(metrics.totalNonCash)} icon={TrendingUp} color="text-indigo-600" subText={`Metode: ${Object.keys(metrics.paymentBreakdown).join(', ')}`} />
+                    <Card title="Non-Tunai" value={formatCurrency(metrics.totalNonCash)} icon={TrendingUp} color="text-indigo-600" subText={`Metode: ${Object.keys(metrics.paymentBreakdownNonCash).join(', ') || '-'}`} />
                     <Card title="Estimasi Pajak" value={formatCurrency(metrics.totalRevenue * taxRate)} icon={DollarSign} color="text-gray-500" subText={`Tarif: ${(taxRate * 100).toFixed(0)}%`} />
                 </div>
 
