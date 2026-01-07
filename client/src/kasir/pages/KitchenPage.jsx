@@ -97,6 +97,10 @@ const KitchenPage = () => {
             return;
         }
 
+        // ✅ CARI ORDER UNTUK AMBIL DAILY NUMBER
+        const order = orders.find(o => o.orderId === orderId);
+        const displayId = order?.dailyNumber || orderId;
+
         setProcessingId(orderId);
         try {
             await api.completeOrder(orderId);
@@ -104,8 +108,8 @@ const KitchenPage = () => {
             // ✅ Remove order dari list langsung (jangan wait fetchOrders)
             setOrders(prevOrders => prevOrders.filter(o => o.orderId !== orderId));
             
-            // 🔔 Toast notification saja (sudah ter-remove dari UI)
-            toast.success(`Order #${orderId} Selesai! ✅`, {
+            // 🔔 Toast notification dengan daily number
+            toast.success(`Order #${displayId} Selesai! ✅`, {
                 icon: <CheckCircle className="text-green-500" />,
                 duration: 3000
             });

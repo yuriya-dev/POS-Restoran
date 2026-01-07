@@ -41,11 +41,18 @@ const TableMap = () => {
             fetchTables();
         }, 15000);
         
+        // ✅ LISTEN TO ORDER COMPLETION EVENT - FETCH IMMEDIATE
+        const handleOrderCompleted = () => {
+            fetchTables();
+        };
+        window.addEventListener('orderCompleted', handleOrderCompleted);
+        
         const timer = setInterval(() => setCurrentTime(new Date()), 60000);
         
         return () => {
             clearInterval(refreshInterval);
             clearInterval(timer);
+            window.removeEventListener('orderCompleted', handleOrderCompleted);
         };
     }, []);
 

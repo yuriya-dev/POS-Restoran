@@ -198,7 +198,10 @@ const CartSidebar = () => {
         setOrderSuccessData(null);
         setCashReceived('');
         setIsMobileOpen(false);
-        // ✅ NAVIGATE BACK - TableMap AKAN AUTO-REFRESH DALAM 15 DETIK
+        
+        // ✅ DISPATCH EVENT UNTUK TRIGGER IMMEDIATE FETCH DI TABLEMAP
+        window.dispatchEvent(new CustomEvent('orderCompleted'));
+        
         navigate('/');
     };
 
