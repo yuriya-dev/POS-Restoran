@@ -53,6 +53,8 @@ const CartSidebar = () => {
         
         const offlineOrder = {
             ...payload,
+            // ✅ ADD orderName untuk offline order agar format sama
+            orderName: `Meja ${payload.table_id}`,
             tempId: Date.now(),
             isOffline: true,
             savedAt: new Date().toISOString(),
@@ -116,7 +118,7 @@ const CartSidebar = () => {
         const payload = {
             table_id: selectedTable, 
             userId: user?.userId,
-            orderName: `Meja ${selectedTable}`,
+            // ✅ REMOVE orderName - biar server yang generate dari table info
             status: 'paid',
             paymentMethod: paymentMethod,
             subtotal: cartTotals.subtotal,
@@ -138,6 +140,9 @@ const CartSidebar = () => {
 
         try {
             const res = await api.createOrder(payload);
+            
+            // ✅ INVALIDATE CACHE MEJA AGAR REFRESH OTOMATIS
+            localStorage.removeItem('cached_tables');
             
             setOrderSuccessData({
                 ...payload,
@@ -196,7 +201,8 @@ const CartSidebar = () => {
         setOrderSuccessData(null);
         setCashReceived('');
         setIsMobileOpen(false);
-        navigate('/');
+        // ✅ TRIGGER REFRESH TABEL SAAT KEMBALI
+        navigate('/', { state: { refresh: true } });
     };
 
     // --- MODE SUKSES (STRUK) ---

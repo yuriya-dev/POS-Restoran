@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../../shared/services/api';
 import { useAuth } from '../../shared/context/AuthContext';
 import { LogOut, User, Coffee, RefreshCw, Clock, Armchair } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../../shared/components/common/ConfirmModal';
 
@@ -22,6 +22,7 @@ const getDuration = (startTime) => {
 const TableMap = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [tables, setTables] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
@@ -32,10 +33,19 @@ const TableMap = () => {
     const [isClearing, setIsClearing] = useState(false);
 
     useEffect(() => {
-        fetchTables();
+        // ✅ CHECK JIKA ADA SIGNAL REFRESH DARI ORDER SELESAI
+        if (location.state?.refresh) {
+            setLoading(true);
+            fetchTables();
+            // Clear state agar tidak refetch lagi
+            window.history.replaceState({}, document.title);
+        } else {
+            fetchTables();
+        }
+        
         const timer = setInterval(() => setCurrentTime(new Date()), 60000);
         return () => clearInterval(timer);
-    }, []);
+    }, [location.state?.refresh]);
 
     const fetchTables = async () => {
         try {

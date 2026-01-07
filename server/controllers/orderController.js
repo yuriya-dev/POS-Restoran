@@ -50,6 +50,15 @@ exports.create = async (req, res) => {
       }
     }
 
+    // 1.5 ✅ AMBIL INFO MEJA UNTUK ORDERNAME YANG AKURAT
+    let orderNameFormatted = `Meja ${table_id}`;
+    if (table_id) {
+      const { data: tableInfo } = await supabase.from('dining_tables').select('number').eq('table_id', table_id).single();
+      if (tableInfo && tableInfo.number) {
+        orderNameFormatted = `Meja ${tableInfo.number}`;
+      }
+    }
+
     // 2. Generate Daily Number
     const startOfToday = getStartOfDayISO();
     const { data: maxOrder } = await supabase
@@ -65,7 +74,7 @@ exports.create = async (req, res) => {
     // 3. Insert Header Order
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .insert([{ ...orderData, table_id, dailyNumber: newDailyNumber }])
+      .insert([{ ...orderData, table_id, orderName: orderNameFormatted, dailyNumber: newDailyNumber }])
       .select('orderId')
       .single();
 
