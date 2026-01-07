@@ -175,4 +175,4 @@ const NotificationDropdown = memo(({ notifications, onRemove, onClearAll, isOpen
 
 NotificationDropdown.displayName = 'NotificationDropdown';
 
-export default NotificationDropdown;export default NotificationDropdown;
+export default NotificationDropdown;
