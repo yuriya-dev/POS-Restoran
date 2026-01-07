@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../shared/context/AuthContext';
 import { api } from '../../shared/services/api'; // Import API untuk sync
-import { LogOut, LayoutDashboard, Utensils, ChefHat, History as HistoryIcon, Moon, Sun, Menu, X, Wifi, WifiOff, RefreshCw, Bell } from 'lucide-react';
+import { LogOut, LayoutDashboard, Utensils, ChefHat, History as HistoryIcon, Moon, Sun, Menu, X, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
-import ConfirmModal from '../../shared/components/common/Coimport NotificationCenter from '../../shared/components/NotificationCenter';
+import ConfirmModal from '../../shared/components/common/ConfirmModal';
+import NotificationCenter from '../../shared/components/NotificationCenter';
 import NotificationDropdown from '../../shared/components/common/NotificationDropdown';
 import { useNotification } from '../../shared/context/NotificationContext';
 import toast from 'react-hot-toast';
@@ -69,7 +70,6 @@ const KasirLayout = () => {
         setIsSyncing(true);
         const toastId = toast.loading("Mengupload data offline...");
         
-        let successCount = 0;
         let failedOrders = [];
 
         for (const order of offlineOrders) {
@@ -77,7 +77,7 @@ const KasirLayout = () => {
                 // Bersihkan properti temp sebelum kirim ke server
                 const { tempId: _, isOffline: __, savedAt: ___, ...payload } = order;
                 await api.createOrder(payload);
-                // Successfully synced - order will be added to server
+                // Successfully synced
             } catch (error) {
                 console.error("Gagal sync order:", error);
                 failedOrders.push(order); // Kembalikan ke antrian jika gagal
@@ -108,7 +108,7 @@ const KasirLayout = () => {
     const isOrderPage = location.pathname.startsWith('/order/');
 
     // Helper Nav Item
-    const NavItem = ({ to, icon: Icon, label, onClick }) => {
+    const NavItem = ({ to, icon: IconComponent, label, onClick }) => {
         const isActive = location.pathname === to;
         return (
             <Link 
@@ -120,7 +120,7 @@ const KasirLayout = () => {
                     : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white'
                     }`}
             >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`} />
+                <IconComponent className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`} />
                 {label}
             </Link>
         );
@@ -182,56 +182,6 @@ const KasirLayout = () => {
                                 isOpen={isNotificationDropdownOpen}
                                 onToggle={setIsNotificationDropdownOpen}
                             />
-
-     </button>
-
-                            <div className="flex items-center gap-3">
-                                <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-2 rounded-xl shadow-lg shadow-blue-600/20">
-                                    <Utensils className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                                </div>
-                                <div>
-                                    <h1 className="text-lg sm:text-xl font-extrabold text-gray-900 dark:text-white tracking-tight leading-none">POS Kasir</h1>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Restaurant</p>
-                                </div>
-                            </div>
-
-                            <nav className="hidden md:flex items-center gap-1 bg-gray-100/50 dark:bg-gray-900/50 p-1.5 rounded-2xl border border-gray-200/50 dark:border-gray-700 ml-4">
-                                <NavItem to="/" icon={Utensils} label="Order" />
-                                <NavItem to="/shift" icon={LayoutDashboard} label="Shift" />
-                                <NavItem to="/history" icon={HistoryIcon} label="Riwayat" />
-                                <NavItem to="/kitchen" icon={ChefHat} label="Dapur" />
-                            </nav>
-                        </div>
-
-                        <div className="flex items-center gap-2 sm:gap-3">
-                            
-                            {/* ✅ NOTIFICATION BELL ICON */}
-                            <div className="relative" ref={notificationDropdownRef}>
-                                <button 
-                                    onClick={() => setIsNotificationDropdownOpen(!isNotificationDropdownOpen)}
-                                    className="relative p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50 transition-all focus:outline-none active:scale-95"
-                                    title="Notifikasi"
-                                >
-                                    <Bell className="w-5 h-5" />
-                                    {notifications.length > 0 && (
-                                        <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg">
-                                            {notifications.length > 9 ? '9+' : notifications.length}
-                                        </span>
-                                    )}
-                                </button>
-                                
-                                {/* Notification Dropdown Modal */}
-                                {isNotificationDropdownOpen && (
-                                    <NotificationDropdown 
-                                        notifications={notifications}
-                                        onRemove={removeNotification}
-                                        onClearAll={clearAll}
-                                        isDarkMode={isDarkMode}
-                                        isOpen={isNotificationDropdownOpen}
-                                        onToggle={setIsNotificationDropdownOpen}
-                                    />
-                                )}
-                            </div>
 
                             {/* ✅ INDIKATOR OFFLINE / SYNC */}
                             <div className={`flex items-center px-3 py-1.5 rounded-xl border transition-all ${

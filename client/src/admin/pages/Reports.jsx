@@ -264,9 +264,9 @@ const Reports = () => {
         }
     ];
     
-    const TabButton = ({ name, icon: Icon, isActive, onClick }) => (
+    const TabButton = ({ name, icon: IconComponent, isActive, onClick }) => (
         <button onClick={onClick} className={`flex items-center px-4 py-2 text-base font-medium transition-colors duration-200 border-b-2 ${isActive ? 'border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
-            <Icon className="w-5 h-5 mr-2" /> {name}
+            <IconComponent className="w-5 h-5 mr-2" /> {name}
         </button>
     );
 

@@ -17,7 +17,7 @@ const Dashboard = () => {
   const [orders, setOrders] = useState([]);
   const [topSellingToday, setTopSellingToday] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [_error, _setError] = useState(null);
 
   // 1. Effect Jam Realtime
   useEffect(() => {
@@ -61,7 +61,6 @@ const Dashboard = () => {
 
       } catch (err) {
         console.error("Gagal mengambil data dashboard:", err);
-        setError("Gagal memuat data transaksi.");
         addNotification(
           '❌ Gagal memuat data dashboard',
           'error'
