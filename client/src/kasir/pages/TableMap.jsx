@@ -41,6 +41,19 @@ const TableMap = () => {
             fetchTables();
         }, 15000);
         
+        // ✅ LISTEN TO TABLE STATUS CHANGE EVENT - IMMEDIATE UPDATE (SAAT ORDER SUKSES)
+        const handleTableStatusChanged = (event) => {
+            const { table_id, status, occupied_at } = event.detail;
+            setTables(prevTables => 
+                prevTables.map(t => 
+                    String(t.table_id) === String(table_id)
+                        ? { ...t, status, occupied_at }
+                        : t
+                )
+            );
+        };
+        window.addEventListener('tableStatusChanged', handleTableStatusChanged);
+        
         // ✅ LISTEN TO ORDER COMPLETION EVENT - FETCH IMMEDIATE
         const handleOrderCompleted = () => {
             fetchTables();
@@ -52,6 +65,7 @@ const TableMap = () => {
         return () => {
             clearInterval(refreshInterval);
             clearInterval(timer);
+            window.removeEventListener('tableStatusChanged', handleTableStatusChanged);
             window.removeEventListener('orderCompleted', handleOrderCompleted);
         };
     }, []);

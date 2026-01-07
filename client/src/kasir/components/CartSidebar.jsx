@@ -141,6 +141,15 @@ const CartSidebar = () => {
         try {
             const res = await api.createOrder(payload);
             
+            // ✅ DISPATCH EVENT UNTUK IMMEDIATE UPDATE STATUS MEJA KE OCCUPIED
+            window.dispatchEvent(new CustomEvent('tableStatusChanged', {
+                detail: {
+                    table_id: selectedTable,
+                    status: 'occupied',
+                    occupied_at: new Date().toISOString()
+                }
+            }));
+            
             setOrderSuccessData({
                 ...payload,
                 serviceCharge: cartTotals.serviceCharge,
