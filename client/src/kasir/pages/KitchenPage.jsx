@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../shared/services/api';
 import { ChefHat, Clock, CheckCircle, RefreshCw, Utensils, Timer, WifiOff } from 'lucide-react';
-import toast from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 
 const KitchenPage = () => {
     const [orders, setOrders] = useState([]);
@@ -70,10 +70,20 @@ const KitchenPage = () => {
 
     // Auto Refresh setiap 30 detik
     useEffect(() => {
+        // Initial load
+        setLoading(true);
         fetchOrders();
-        const interval = setInterval(fetchOrders, 30000);
+        
+        // Auto refresh setiap 30 detik
+        const interval = setInterval(() => {
+            fetchOrders();
+        }, 30000);
+
         return () => clearInterval(interval);
     }, [fetchOrders]);
+        
+        return () => clearInterval(interval);
+    }, []);
 
     const handleComplete = async (orderId, isOffline) => {
         if (isOffline) {
@@ -111,7 +121,17 @@ const KitchenPage = () => {
         }
     };
 
-    const getTimeElapsed = (dateString) => {
+    const handleRefresh = async () => {
+        setLoading(true);
+        try {
+            await fetchOrders();
+        } catch (err) {
+            console.error("Refresh failed:", err);
+            toast.error("Gagal refresh data");
+        } finally {
+            setLoading(false);
+        }
+    };
         const diff = new Date() - new Date(dateString);
         const minutes = Math.floor(diff / 60000);
         return `${minutes} mnt`;
@@ -141,7 +161,7 @@ const KitchenPage = () => {
                         {orders.length} Pesanan Antre
                     </span>
                     <button 
-                        onClick={() => { setLoading(true); fetchOrders(); }}
+                        onClick={handleRefresh}
                         className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-md transition-all active:scale-95"
                         title="Refresh Data"
                     >
@@ -228,6 +248,17 @@ const KitchenPage = () => {
                     ))}
                 </div>
             )}
+            
+            {/* ✅ Toast Notification Container */}
+            <Toaster 
+                position="top-right"
+                toastOptions={{
+                    duration: 3000,
+                    style: {
+                        borderRadius: '10px',
+                    },
+                }}
+            />
         </div>
     );
 };
