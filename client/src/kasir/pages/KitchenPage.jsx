@@ -129,6 +129,8 @@ const KitchenPage = () => {
             setLoading(false);
         }
     };
+
+    const getTimeElapsed = (dateString) => {
         const diff = new Date() - new Date(dateString);
         const minutes = Math.floor(diff / 60000);
         return `${minutes} mnt`;
