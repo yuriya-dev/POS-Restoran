@@ -76,9 +76,9 @@ const KasirLayout = () => {
         for (const order of offlineOrders) {
             try {
                 // Bersihkan properti temp sebelum kirim ke server
-                const { tempId, isOffline, savedAt, ...payload } = order;
+                const { tempId: _, isOffline: __, savedAt: ___, ...payload } = order;
                 await api.createOrder(payload);
-                successCount++;
+                // Successfully synced - order will be added to server
             } catch (error) {
                 console.error("Gagal sync order:", error);
                 failedOrders.push(order); // Kembalikan ke antrian jika gagal

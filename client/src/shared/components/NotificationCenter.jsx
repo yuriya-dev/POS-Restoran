@@ -1,7 +1,10 @@
 import React from 'react';
 import { AlertCircle, CheckCircle, AlertTriangle, Info, X, Bell } from 'lucide-react';
 
-const NotificationCenter = ({ notifications, onRemove, isDarkMode }) => {
+const NotificationCenter = ({ notifications = [], onRemove, isDarkMode }) => {
+    // ✅ Safety check: ensure notifications is always an array
+    const safeNotifications = Array.isArray(notifications) ? notifications : [];
+
     const getIcon = (type) => {
         switch (type) {
             case 'success':
@@ -34,12 +37,12 @@ const NotificationCenter = ({ notifications, onRemove, isDarkMode }) => {
 
     return (
         <div className="fixed top-4 right-4 z-50 space-y-2 max-w-md pointer-events-none">
-            {notifications.length > 0 && (
+            {safeNotifications.length > 0 && (
                 <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 shadow-lg pointer-events-auto mb-2">
                     <div className="flex items-center justify-between text-sm font-semibold text-gray-700 dark:text-gray-300">
                         <div className="flex items-center gap-2">
                             <Bell className="w-4 h-4" />
-                            Notifikasi ({notifications.length})
+                            Notifikasi ({safeNotifications.length})
                         </div>
                         <button
                             onClick={() => onRemove('all')}
@@ -51,7 +54,7 @@ const NotificationCenter = ({ notifications, onRemove, isDarkMode }) => {
                 </div>
             )}
 
-            {notifications.map((notification) => (
+            {safeNotifications.map((notification) => (
                 <div
                     key={notification.id}
                     className={`border rounded-lg p-4 shadow-lg animate-in slide-in-from-right-5 fade-in duration-300 pointer-events-auto ${getStyles(notification.type)}`}
