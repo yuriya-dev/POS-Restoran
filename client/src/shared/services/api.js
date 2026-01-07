@@ -5,10 +5,8 @@ import axios from 'axios';
 // 2. Jika di Laptop (Local), dia pakai VITE_API_URL dari file .env (http://...)
 // 3. Jika tidak ada .env, fallback ke http://localhost:5001/api
 
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
-
 const API = axios.create({
-  baseURL: baseURL, 
+  baseURL: 'https://pos-restoran.onrender.com/api', 
 });
 
 // ✅ TAMBAHAN PENTING: Request Interceptor
