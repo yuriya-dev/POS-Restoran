@@ -141,14 +141,24 @@ const CartSidebar = () => {
         try {
             const res = await api.createOrder(payload);
             
-            // ✅ DISPATCH EVENT UNTUK IMMEDIATE UPDATE STATUS MEJA KE OCCUPIED
-            window.dispatchEvent(new CustomEvent('tableStatusChanged', {
-                detail: {
-                    table_id: selectedTable,
-                    status: 'occupied',
-                    occupied_at: new Date().toISOString()
-                }
-            }));
+            console.log('Order created successfully:', res.data);
+            
+            // ✅ STORE TABLE STATUS UPDATE INFO
+            const tableStatusUpdate = {
+                table_id: selectedTable,
+                status: 'occupied',
+                occupied_at: new Date().toISOString()
+            };
+            
+            // Store di localStorage sebagai backup (untuk saat component mount)
+            const pendingUpdates = JSON.parse(localStorage.getItem('pendingTableStatusUpdates') || '[]');
+            pendingUpdates.push(tableStatusUpdate);
+            localStorage.setItem('pendingTableStatusUpdates', JSON.stringify(pendingUpdates));
+            console.log('Stored pending table update:', tableStatusUpdate);
+            
+            // Dispatch event untuk immediate update jika TableMap sudah mounted
+            window.dispatchEvent(new CustomEvent('tableStatusChanged', { detail: tableStatusUpdate }));
+            console.log('Dispatched tableStatusChanged event');
             
             setOrderSuccessData({
                 ...payload,

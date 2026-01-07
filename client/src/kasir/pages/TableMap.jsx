@@ -33,8 +33,33 @@ const TableMap = () => {
     const [isClearing, setIsClearing] = useState(false);
 
     useEffect(() => {
-        // ✅ FETCH INITIAL + AUTO-REFRESH SETIAP 15 DETIK
-        fetchTables();
+        // ✅ CHECK PENDING TABLE STATUS UPDATES (dari order sukses sebelumnya)
+        const applyPendingUpdates = () => {
+            const pending = JSON.parse(localStorage.getItem('pendingTableStatusUpdates') || '[]');
+            if (pending.length > 0) {
+                console.log('Applying pending table updates:', pending);
+                setTables(prevTables => {
+                    let updated = [...prevTables];
+                    pending.forEach(update => {
+                        updated = updated.map(t =>
+                            String(t.table_id) === String(update.table_id)
+                                ? { ...t, status: update.status, occupied_at: update.occupied_at }
+                                : t
+                        );
+                    });
+                    return updated;
+                });
+                // Clear pending updates setelah diapply
+                localStorage.removeItem('pendingTableStatusUpdates');
+            }
+        };
+
+        // ✅ FETCH INITIAL DATA
+        (async () => {
+            await fetchTables();
+            // Apply pending updates after fetching fresh data
+            applyPendingUpdates();
+        })();
         
         // Auto-refresh table status setiap 15 detik
         const refreshInterval = setInterval(() => {
@@ -44,6 +69,7 @@ const TableMap = () => {
         // ✅ LISTEN TO TABLE STATUS CHANGE EVENT - IMMEDIATE UPDATE (SAAT ORDER SUKSES)
         const handleTableStatusChanged = (event) => {
             const { table_id, status, occupied_at } = event.detail;
+            console.log('Table status changed event:', { table_id, status, occupied_at });
             setTables(prevTables => 
                 prevTables.map(t => 
                     String(t.table_id) === String(table_id)
@@ -56,6 +82,7 @@ const TableMap = () => {
         
         // ✅ LISTEN TO ORDER COMPLETION EVENT - FETCH IMMEDIATE
         const handleOrderCompleted = () => {
+            console.log('Order completed event - refetching tables');
             fetchTables();
         };
         window.addEventListener('orderCompleted', handleOrderCompleted);
