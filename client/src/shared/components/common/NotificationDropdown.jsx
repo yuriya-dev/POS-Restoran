@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, X, CheckCircle, AlertCircle, AlertTriangle, Info, Trash2 } from 'lucide-react';
 
-const NotificationDropdown = ({ notifications, onRemove, onClearAll, isOpen: controlledIsOpen, onToggle: controlledOnToggle }) => {
+const NotificationDropdown = ({ notifications = [], onRemove, onClearAll, isOpen: controlledIsOpen, onToggle: controlledOnToggle }) => {
+    // Ensure notifications is always an array
+    const safeNotifications = Array.isArray(notifications) ? notifications : [];
+    
     // Support both controlled (parent manages state) dan uncontrolled (component manages state) modes
     const isControlled = controlledIsOpen !== undefined && controlledOnToggle !== undefined;
     const [internalIsOpen, setInternalIsOpen] = useState(false);
@@ -64,9 +67,9 @@ const NotificationDropdown = ({ notifications, onRemove, onClearAll, isOpen: con
                     className="relative p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
                 >
                     <Bell className="w-5 h-5" />
-                    {notifications.length > 0 && (
+                    {safeNotifications.length > 0 && (
                         <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
-                            {notifications.length > 9 ? '9+' : notifications.length}
+                            {safeNotifications.length > 9 ? '9+' : safeNotifications.length}
                         </span>
                     )}
                 </button>
@@ -79,10 +82,10 @@ const NotificationDropdown = ({ notifications, onRemove, onClearAll, isOpen: con
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                         <h3 className="text-sm font-bold text-gray-900 dark:text-white">
-                            Notifikasi ({notifications.length})
+                            Notifikasi ({safeNotifications.length})
                         </h3>
                         <div className="flex items-center gap-2">
-                            {notifications.length > 0 && (
+                            {safeNotifications.length > 0 && (
                                 <button
                                     onClick={() => {
                                         onClearAll();
@@ -104,14 +107,14 @@ const NotificationDropdown = ({ notifications, onRemove, onClearAll, isOpen: con
 
                     {/* Content */}
                     <div className="overflow-y-auto flex-1">
-                        {notifications.length === 0 ? (
+                        {safeNotifications.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
                                 <Info className="w-8 h-8 mb-2" />
                                 <p className="text-sm font-medium">Tidak ada notifikasi</p>
                             </div>
                         ) : (
                             <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {notifications.map((notif) => (
+                                {safeNotifications.map((notif) => (
                                     <div
                                         key={notif.id}
                                         className={`p-3 flex items-start gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${getStyles(notif.type)}`}
@@ -152,7 +155,7 @@ const NotificationDropdown = ({ notifications, onRemove, onClearAll, isOpen: con
                     </div>
 
                     {/* Footer */}
-                    {notifications.length > 0 && (
+                    {safeNotifications.length > 0 && (
                         <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-center">
                             <button
                                 onClick={() => {

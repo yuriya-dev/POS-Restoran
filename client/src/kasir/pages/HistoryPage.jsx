@@ -41,20 +41,20 @@ const HistoryPage = () => {
                 createdAt: o.savedAt,       // Waktu simpan lokal
                 isOffline: true             // Flag khusus
             }));
-        } catch (e) {
-            console.error("Gagal baca storage offline", e);
+        } catch (_error) {
+            console.error("Gagal baca storage offline", _error);
         }
 
         // 2. Ambil Data Server (Dengan Fallback Cache)
         try {
             const res = await api.getOrders();
-            serverData = res.data || [];
+            serverData = Array.isArray(res.data) ? res.data : [];
             
             // ✅ SUKSES: Update Cache untuk penggunaan offline nanti
             localStorage.setItem('cached_history_orders', JSON.stringify(serverData));
 
-        } catch (error) {
-            console.warn("Gagal koneksi server, menggunakan cache lokal.");
+        } catch (err) {
+            console.warn("Gagal koneksi server, menggunakan cache lokal.", err);
             
             // ✅ ERROR/OFFLINE: Ambil dari Cache Server terakhir
             const cachedServerData = localStorage.getItem('cached_history_orders');
@@ -71,10 +71,10 @@ const HistoryPage = () => {
             }
         } finally {
             // 3. Gabungkan & Filter Data (Hanya Hari Ini)
-            const allOrders = [...offlineData, ...serverData];
+            const allOrders = [...(Array.isArray(offlineData) ? offlineData : []), ...(Array.isArray(serverData) ? serverData : [])];
             const today = new Date().toDateString();
             
-            const todayOrders = allOrders.filter(order => {
+            const todayOrders = (Array.isArray(allOrders) ? allOrders : []).filter(order => {
                 const orderDate = new Date(order.createdAt).toDateString();
                 return orderDate === today;
             });

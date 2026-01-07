@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Search, Utensils, Grid, ChevronLeft, RefreshCw, Plus, ChefHat, WifiOff } from 'lucide-react'; // ✅ Tambah WifiOff
 import { api } from '../../shared/services/api';
 import { useCart } from '../context/CartContext';
-import { useNotification } from '../../shared/context/NotificationContext';
 import { formatCurrency } from '../../shared/utils/helpers';
 import CartSidebar from '../components/CartSidebar';
 import toast from 'react-hot-toast';
@@ -12,7 +11,6 @@ const OrderPage = () => {
     const { tableId } = useParams(); 
     const navigate = useNavigate();
     const { addToCart, setSelectedTable } = useCart();
-    const { addNotification } = useNotification();
 
     const [menuItems, setMenuItems] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -29,11 +27,12 @@ const OrderPage = () => {
                     api.getCategories()
                 ]);
                 
-                const availableMenu = (menuRes.data || []).filter(m => m.isAvailable);
+                const availableMenu = ((Array.isArray(menuRes.data) ? menuRes.data : []) || []).filter(m => m.isAvailable);
+                const categoriesData = Array.isArray(catRes.data) ? catRes.data : [];
                 
                 // Update State
                 setMenuItems(availableMenu);
-                setCategories(catRes.data || []);
+                setCategories(categoriesData);
                 
                 // ✅ SUKSES: Simpan data ke LocalStorage untuk cadangan Offline
                 localStorage.setItem('cached_menuItems', JSON.stringify(availableMenu));

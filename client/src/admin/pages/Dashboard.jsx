@@ -30,7 +30,8 @@ const Dashboard = () => {
     const fetchData = async () => {
       try {
         const ordersRes = await api.getOrders();
-        setOrders(ordersRes.data || []);
+        const ordersData = Array.isArray(ordersRes.data) ? ordersRes.data : [];
+        setOrders(ordersData);
 
         const startToday = new Date();
         startToday.setHours(0, 0, 0, 0);
@@ -39,16 +40,17 @@ const Dashboard = () => {
         endToday.setHours(23, 59, 59, 999);
 
         const topItemRes = await api.getTopSellingItems(startToday.toISOString(), endToday.toISOString());
+        const topItemsData = Array.isArray(topItemRes.data?.data) ? topItemRes.data.data : [];
         
-        if (topItemRes.data?.data?.length > 0) {
-            const best = topItemRes.data.data[0];
+        if (topItemsData.length > 0) {
+            const best = topItemsData[0];
             setTopSellingToday({ name: best.name, qty: best.totalQty });
         } else {
             setTopSellingToday(null);
         }
 
         // Alert jika banyak pending orders
-        const pendingOrders = ordersRes.data?.filter(o => o.status === 'pending') || [];
+        const pendingOrders = ordersData.filter(o => o.status === 'pending');
         if (pendingOrders.length > 5) {
           addNotification(
             `⚠️ Ada ${pendingOrders.length} order menunggu!`,

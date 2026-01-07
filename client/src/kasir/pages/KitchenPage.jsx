@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../shared/services/api';
 import { useNotification } from '../../shared/context/NotificationContext';
 import { ChefHat, Clock, CheckCircle, RefreshCw, Utensils, Timer, WifiOff } from 'lucide-react';
@@ -11,7 +11,7 @@ const KitchenPage = () => {
     const { addNotification } = useNotification();
 
     // 1. Fetch Orders dengan Logika Offline Fallback + Merge Local Data
-    const fetchOrders = async () => {
+    const fetchOrders = useCallback(async () => {
         let serverData = [];
         let offlineData = [];
 
@@ -38,19 +38,19 @@ const KitchenPage = () => {
         // B. Ambil Data Server
         try {
             const res = await api.getKitchenOrders();
-            serverData = res.data.data || [];
+            serverData = Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
             
             // SUKSES: Update Cache
             localStorage.setItem('cached_kitchen_orders', JSON.stringify(serverData));
 
-        } catch (error) {
-            console.warn("Koneksi server dapur gagal:", error);
+        } catch (_err) {
+            console.warn("Koneksi server dapur gagal:", _err);
 
             // ERROR: Ambil dari Cache Server terakhir
             const cachedData = localStorage.getItem('cached_kitchen_orders');
             if (cachedData) {
                 serverData = JSON.parse(cachedData);
-                if (loading && navigator.onLine === false) { 
+                if (!navigator.onLine) { 
                     toast("Mode Offline Aktif", {
                         icon: <WifiOff className="w-4 h-4 text-orange-500" />,
                         style: { borderRadius: '10px', background: '#333', color: '#fff' },
@@ -68,14 +68,14 @@ const KitchenPage = () => {
             setOrders(combinedOrders);
             setLoading(false);
         }
-    };
+    }, []);
 
     // Auto Refresh setiap 30 detik
     useEffect(() => {
         fetchOrders();
         const interval = setInterval(fetchOrders, 30000);
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchOrders]);
 
     const handleComplete = async (orderId, isOffline) => {
         if (isOffline) {
@@ -109,7 +109,8 @@ const KitchenPage = () => {
             );
             
             fetchOrders(); // Refresh list segera
-        } catch (error) {
+        } catch (err) {
+            console.error("Error updating order status:", err);
             toast.error("Gagal update status");
             addNotification("Gagal menyelesaikan pesanan", 'error', 4000);
         } finally {
