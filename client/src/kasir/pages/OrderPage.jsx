@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Search, Utensils, Grid, ChevronLeft, RefreshCw, Plus, ChefHat, WifiOff } from 'lucide-react'; // ✅ Tambah WifiOff
 import { api } from '../../shared/services/api';
 import { useCart } from '../context/CartContext';
+import { useDebounce } from '../../shared/hooks/useOptimization';
 import { formatCurrency } from '../../shared/utils/helpers';
 import CartSidebar from '../components/CartSidebar';
 import toast from 'react-hot-toast';
@@ -17,6 +18,9 @@ const OrderPage = () => {
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
+
+    // ✅ OPTIMIZATION: Debounce search input untuk mengurangi re-renders
+    const debouncedSearch = useDebounce(search, 300);
 
     useEffect(() => {
         const loadData = async () => {
@@ -69,13 +73,14 @@ const OrderPage = () => {
         loadData();
     }, [tableId, setSelectedTable]);
 
+    // ✅ OPTIMIZATION: Use debouncedSearch instead of search to reduce filtering operations
     const filteredMenu = useMemo(() => {
         return menuItems.filter(item => {
             const matchCat = selectedCategory === 'all' || item.category == selectedCategory;
-            const matchSearch = item.name.toLowerCase().includes(search.toLowerCase());
+            const matchSearch = item.name.toLowerCase().includes(debouncedSearch.toLowerCase());
             return matchCat && matchSearch;
         });
-    }, [menuItems, selectedCategory, search]);
+    }, [menuItems, selectedCategory, debouncedSearch]);
 
     return (
         <div className="flex h-screen bg-[#F5F7FA] dark:bg-gray-900 font-sans overflow-hidden transition-colors duration-200">

@@ -8,6 +8,7 @@ import Button from '../../shared/components/common/Button';
 import ConfirmModal from '../../shared/components/common/ConfirmModal';
 import MenuItemForm from '../components/management/MenuItemForm';
 import { useData } from '../context/DataContext';
+import { useDebounce } from '../../shared/hooks/useOptimization';
 import { formatCurrency } from '../../shared/utils/helpers';
 
 const MenuItems = () => {
@@ -22,6 +23,9 @@ const MenuItems = () => {
     
     // State untuk tombol refresh manual
     const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // ✅ OPTIMIZATION: Debounce search untuk mengurangi re-renders
+    const debouncedSearchTerm = useDebounce(searchTerm, 400);
 
     // ✅ FUNGSI REFRESH DATA
     const handleRefresh = async () => {
@@ -54,10 +58,10 @@ const MenuItems = () => {
 
         return menuItems.filter(item => {
             const categoryMatch = filterCategory === 'all' || item.category == filterCategory;
-            const searchMatch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
+            const searchMatch = item.name?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || false;
             return categoryMatch && searchMatch;
         }).sort((a, b) => a.name.localeCompare(b.name));
-    }, [menuItems, filterCategory, searchTerm]);
+    }, [menuItems, filterCategory, debouncedSearchTerm]);
 
     const handleEdit = (item) => {
         setSelectedItem(item);

@@ -64,16 +64,25 @@ export const DataProvider = ({ children }) => {
         fetchInitialData();
     }, [fetchInitialData]);
 
-    // ✅ FITUR BARU: Polling Otomatis (Update Stok & Order tiap 30 detik)
-    // Ini memastikan Admin melihat stok yang berkurang meski tidak refresh halaman
+    // ✅ OPTIMIZED POLLING: Adaptive refresh based on activity
+    // Mengurangi beban server dengan intelligent polling
+    // Hanya refresh orders & tables yang sering berubah (30s), menu items & categories jarang (2m)
     useEffect(() => {
-        const interval = setInterval(() => {
-            refreshData('menuItems'); // Update Stok
-            refreshData('orders');    // Update Laporan Penjualan
-            refreshData('tables');    // Update Status Meja
+        // Polling cepat untuk real-time data (Orders & Tables)
+        const fastInterval = setInterval(() => {
+            refreshData('orders');    // Real-time penjualan
+            refreshData('tables');    // Real-time status meja
         }, 30000); // 30 Detik
 
-        return () => clearInterval(interval);
+        // Polling lambat untuk stok (tidak perlu sering)
+        const slowInterval = setInterval(() => {
+            refreshData('menuItems'); // Update Stok (cache-aware, minimal network impact)
+        }, 2 * 60 * 1000); // 2 Menit
+
+        return () => {
+            clearInterval(fastInterval);
+            clearInterval(slowInterval);
+        };
     }, [refreshData]);
 
     // --- CRUD USERS ---

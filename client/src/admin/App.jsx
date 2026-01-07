@@ -1,20 +1,28 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from '../shared/context/AuthContext';
 import { DataProvider } from './context/DataContext';
 
-// Pages
-import Dashboard from './pages/Dashboard';
-import MenuItems from './pages/MenuItems';
-import MenuCategories from './pages/MenuCategories'; 
-import TableManagement from './pages/TableManajement'; 
-import Employees from './pages/Employees'; 
-import Settings from './pages/Settings';
-import Reports from './pages/Reports';
+// ✅ LAZY LOADING: Code splitting untuk mengurangi initial bundle
+// Pages akan di-load hanya saat route diakses
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const MenuItems = lazy(() => import('./pages/MenuItems'));
+const MenuCategories = lazy(() => import('./pages/MenuCategories'));
+const TableManagement = lazy(() => import('./pages/TableManajement'));
+const Employees = lazy(() => import('./pages/Employees'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Reports = lazy(() => import('./pages/Reports'));
 
 // Components
 import AdminLayout from './components/layout/AdminLayout';
+
+// ✅ Loading Component untuk lazy loaded pages
+const PageLoader = () => (
+    <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    </div>
+);
 
 // ✅ KOMPONEN BARU: Update Judul Website Otomatis
 const TitleUpdater = () => {
@@ -83,17 +91,39 @@ const AdminApp = () => {
                             </ProtectedRoute>
                         }
                     >
-                        <Route index element={<Dashboard />} />
-                        <Route path="menu" element={<MenuItems />} />
-                        <Route path="categories" element={<MenuCategories />} />
-                        <Route path="tables" element={<TableManagement />} />
-                        <Route path="reports" element={<Reports />} />
+                        <Route index element={
+                            <Suspense fallback={<PageLoader />}>
+                                <Dashboard />
+                            </Suspense>
+                        } />
+                        <Route path="menu" element={
+                            <Suspense fallback={<PageLoader />}>
+                                <MenuItems />
+                            </Suspense>
+                        } />
+                        <Route path="categories" element={
+                            <Suspense fallback={<PageLoader />}>
+                                <MenuCategories />
+                            </Suspense>
+                        } />
+                        <Route path="tables" element={
+                            <Suspense fallback={<PageLoader />}>
+                                <TableManagement />
+                            </Suspense>
+                        } />
+                        <Route path="reports" element={
+                            <Suspense fallback={<PageLoader />}>
+                                <Reports />
+                            </Suspense>
+                        } />
                         
                         <Route 
                             path="employees" 
                             element={
                                 <ProtectedRoute allowedRoles={['admin']}>
-                                    <Employees />
+                                    <Suspense fallback={<PageLoader />}>
+                                        <Employees />
+                                    </Suspense>
                                 </ProtectedRoute>
                             } 
                         />
@@ -101,7 +131,9 @@ const AdminApp = () => {
                             path="settings" 
                             element={
                                 <ProtectedRoute allowedRoles={['admin']}>
-                                    <Settings />
+                                    <Suspense fallback={<PageLoader />}>
+                                        <Settings />
+                                    </Suspense>
                                 </ProtectedRoute>
                             } 
                         />

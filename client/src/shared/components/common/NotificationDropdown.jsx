@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, memo, useCallback } from 'react';
 import { Bell, X, CheckCircle, AlertCircle, AlertTriangle, Info, Trash2 } from 'lucide-react';
 
-const NotificationDropdown = ({ notifications, onRemove, onClearAll, isOpen: controlledIsOpen, onToggle: controlledOnToggle }) => {
+const NotificationDropdown = memo(({ notifications, onRemove, onClearAll, isOpen: controlledIsOpen, onToggle: controlledOnToggle }) => {
     // Support both controlled (parent manages state) dan uncontrolled (component manages state) modes
     const isControlled = controlledIsOpen !== undefined && controlledOnToggle !== undefined;
     const [internalIsOpen, setInternalIsOpen] = useState(false);
@@ -11,19 +11,20 @@ const NotificationDropdown = ({ notifications, onRemove, onClearAll, isOpen: con
     
     const dropdownRef = useRef(null);
 
+    // ✅ OPTIMIZATION: Memoize close handler to prevent re-binding
+    const handleClickOutside = useCallback((event) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+            actualOnToggle?.(false);
+        }
+    }, [actualOnToggle]);
+
     // Close dropdown ketika click di luar
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                actualOnToggle?.(false);
-            }
-        };
-
         if (actualIsOpen) {
             document.addEventListener('mousedown', handleClickOutside);
             return () => document.removeEventListener('mousedown', handleClickOutside);
         }
-    }, [actualIsOpen, actualOnToggle]);
+    }, [actualIsOpen, handleClickOutside]);
 
     const getIcon = (type) => {
         switch (type) {
@@ -170,6 +171,8 @@ const NotificationDropdown = ({ notifications, onRemove, onClearAll, isOpen: con
             )}
         </div>
     );
-};
+});
 
-export default NotificationDropdown;
+NotificationDropdown.displayName = 'NotificationDropdown';
+
+export default NotificationDropdown;export default NotificationDropdown;
