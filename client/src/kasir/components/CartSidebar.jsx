@@ -11,7 +11,7 @@ import { Receipt } from './Receipt';
 import ConfirmModal from '../../shared/components/common/ConfirmModal'; // ✅ Import Modal Konfirmasi
 
 const CartSidebar = () => {
-    const { cartItems, addToCart, decreaseQty, removeFromCart, updateNotes, cartTotals, clearCart, selectedTable } = useCart();
+    const { cartItems, addToCart, decreaseQty, removeFromCart, updateNotes, cartTotals, clearCart, selectedTable, selectedTableName } = useCart();
     const { settings } = useSettings();
     
     const [paymentMethod, setPaymentMethod] = useState('cash');
@@ -53,8 +53,8 @@ const CartSidebar = () => {
         
         const offlineOrder = {
             ...payload,
-            // ✅ ADD orderName untuk offline order agar format sama
-            orderName: `Meja ${payload.table_id}`,
+            // ✅ ADD orderName DENGAN NAMA TABEL YANG SESUAI
+            orderName: selectedTableName || `Meja ${payload.table_id}`,
             tempId: Date.now(),
             isOffline: true,
             savedAt: new Date().toISOString(),
@@ -294,7 +294,7 @@ const CartSidebar = () => {
                         </div>
                         <div>
                             <h2 className="font-bold text-gray-800 dark:text-white text-lg">Keranjang</h2>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Meja {selectedTable}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{selectedTableName || `Meja ${selectedTable}`}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">

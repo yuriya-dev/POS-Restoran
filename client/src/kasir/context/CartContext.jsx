@@ -8,6 +8,7 @@ export const CartProvider = ({ children }) => {
     // State Keranjang: Array of { itemId, name, price, quantity, notes, image_url }
     const [cartItems, setCartItems] = useState([]);
     const [selectedTable, setSelectedTable] = useState(null); // Menyimpan meja yang sedang aktif
+    const [selectedTableName, setSelectedTableName] = useState(null); // ✅ NAMA TABEL YANG SESUAI
 
     // Tambah Item ke Cart
     const addToCart = (product, notes = '') => {
@@ -89,7 +90,9 @@ export const CartProvider = ({ children }) => {
         clearCart,
         cartTotals,
         selectedTable,
-        setSelectedTable
+        setSelectedTable,
+        selectedTableName,
+        setSelectedTableName // ✅ EXPORT TABLE NAME SETTER
     };
 
     return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

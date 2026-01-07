@@ -11,13 +11,14 @@ import toast from 'react-hot-toast';
 const OrderPage = () => {
     const { tableId } = useParams(); 
     const navigate = useNavigate();
-    const { addToCart, setSelectedTable } = useCart();
+    const { addToCart, setSelectedTable, setSelectedTableName } = useCart();
 
     const [menuItems, setMenuItems] = useState([]);
     const [categories, setCategories] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
+    const [tableName, setTableName] = useState(`Meja ${tableId}`); // ✅ STATE UNTUK NAMA TABEL
 
     // ✅ OPTIMIZATION: Debounce search input untuk mengurangi re-renders
     const debouncedSearch = useDebounce(search, 300);
@@ -25,7 +26,17 @@ const OrderPage = () => {
     useEffect(() => {
         const loadData = async () => {
             try {
-                // 1. Coba ambil data dari Server (Online)
+                // 1. ✅ AMBIL INFO TABEL UNTUK NAMA YANG BENAR
+                const tableRes = await api.getTables();
+                const tables = Array.isArray(tableRes.data) ? tableRes.data : [];
+                const tableInfo = tables.find(t => String(t.table_id) === String(tableId));
+                if (tableInfo?.number) {
+                    const correctTableName = `Meja ${tableInfo.number}`;
+                    setTableName(correctTableName);
+                    setSelectedTableName(correctTableName); // ✅ SET KE CONTEXT
+                }
+
+                // 2. Coba ambil data dari Server (Online)
                 const [menuRes, catRes] = await Promise.all([
                     api.getMenuItems(),
                     api.getCategories()
@@ -98,7 +109,7 @@ const OrderPage = () => {
                             <ChevronLeft className="w-6 h-6" />
                         </button>
                         <div>
-                            <h1 className="text-2xl font-extrabold text-gray-800 dark:text-white tracking-tight">Meja {tableId}</h1>
+                            <h1 className="text-2xl font-extrabold text-gray-800 dark:text-white tracking-tight">{tableName}</h1>
                             <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5">{filteredMenu.length} menu tersedia</p>
                         </div>
                     </div>
