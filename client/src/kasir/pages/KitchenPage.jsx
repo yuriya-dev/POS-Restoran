@@ -81,9 +81,6 @@ const KitchenPage = () => {
 
         return () => clearInterval(interval);
     }, [fetchOrders]);
-        
-        return () => clearInterval(interval);
-    }, []);
 
     const handleComplete = async (orderId, isOffline) => {
         if (isOffline) {
