@@ -4,17 +4,22 @@ import { api } from '../../shared/services/api'; // Import API untuk sync
 import { LogOut, LayoutDashboard, Utensils, ChefHat, History as HistoryIcon, Moon, Sun, Menu, X, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import ConfirmModal from '../../shared/components/common/ConfirmModal';
+import NotificationCenter from '../../shared/components/NotificationCenter';
+import NotificationDropdown from '../../shared/components/common/NotificationDropdown';
+import { useNotification } from '../../shared/context/NotificationContext';
 import toast from 'react-hot-toast';
 
 const KasirLayout = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const { notifications, removeNotification, clearAll } = useNotification();
 
     // State UI
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+    const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
 
     // State Offline Mode
     const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -125,6 +130,19 @@ const KasirLayout = () => {
     return (
         <div className="min-h-screen bg-[#F5F7FA] dark:bg-gray-900 flex flex-col transition-colors duration-200 font-sans">
             
+            {/* Notification Center */}
+            <NotificationCenter 
+                notifications={notifications}
+                onRemove={(id) => {
+                    if (id === 'all') {
+                        clearAll();
+                    } else {
+                        removeNotification(id);
+                    }
+                }}
+                isDarkMode={isDarkMode}
+            />
+            
             {/* Header */}
             {!isOrderPage && (
                 <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-4 sticky top-0 z-40 shadow-sm transition-colors duration-200">
@@ -157,6 +175,15 @@ const KasirLayout = () => {
 
                         <div className="flex items-center gap-2 sm:gap-3">
                             
+                            {/* ✅ NOTIFICATION BELL - Controlled mode */}
+                            <NotificationDropdown 
+                                notifications={notifications}
+                                onRemove={removeNotification}
+                                onClearAll={clearAll}
+                                isOpen={isNotificationDropdownOpen}
+                                onToggle={setIsNotificationDropdownOpen}
+                            />
+
                             {/* ✅ INDIKATOR OFFLINE / SYNC */}
                             <div className={`flex items-center px-3 py-1.5 rounded-xl border transition-all ${
                                 isOnline 

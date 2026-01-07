@@ -242,7 +242,7 @@ const HistoryPage = () => {
                                                     </div>
                                                     
                                                     {/* Actions */}
-                                                    <div className="col-span-2 w-full flex justify-end gap-2 mt-2 md:mt-0">
+                                                    <div className="col-span-2 w-full flex justify-center items-center gap-2">
                                                         <button 
                                                             onClick={() => setViewOrder(order)} 
                                                             className="p-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-200 dark:hover:border-blue-800 hover:shadow-sm transition-all"

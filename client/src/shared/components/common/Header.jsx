@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Bell, User, Menu, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
+import NotificationDropdown from './NotificationDropdown';
 
 const Header = ({ title, onMenuClick }) => {
     const { user } = useAuth();
+    const { notifications, removeNotification, clearAll } = useNotification();
 
     // --- Dark Mode Logic ---
     const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -53,10 +56,11 @@ const Header = ({ title, onMenuClick }) => {
                 </button>
 
                 {/* Notification */}
-                <button className="relative p-2.5 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200">
-                    <Bell className="w-5 h-5" />
-                    <span className="absolute top-2 right-2.5 block h-2 w-2 rounded-full ring-2 ring-white dark:ring-gray-800 bg-red-500"></span>
-                </button>
+                <NotificationDropdown 
+                    notifications={notifications}
+                    onRemove={removeNotification}
+                    onClearAll={clearAll}
+                />
                 
                 {/* Separator */}
                 <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block"></div>

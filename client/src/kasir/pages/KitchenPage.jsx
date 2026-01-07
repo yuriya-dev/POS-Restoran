@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../shared/services/api';
+import { useNotification } from '../../shared/context/NotificationContext';
 import { ChefHat, Clock, CheckCircle, RefreshCw, Utensils, Timer, WifiOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -7,6 +8,7 @@ const KitchenPage = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState(null);
+    const { addNotification } = useNotification();
 
     // 1. Fetch Orders dengan Logika Offline Fallback + Merge Local Data
     const fetchOrders = async () => {
@@ -94,9 +96,22 @@ const KitchenPage = () => {
         try {
             await api.completeOrder(orderId);
             toast.success(`Order #${orderId} Selesai!`);
+            
+            // 🔔 Tambahkan notifikasi
+            addNotification(
+                `✅ Pesanan #${orderId} sudah selesai dimasak!`,
+                'success',
+                5000,
+                {
+                    label: 'Lihat Detail',
+                    onClick: () => window.location.href = `/`
+                }
+            );
+            
             fetchOrders(); // Refresh list segera
         } catch (error) {
             toast.error("Gagal update status");
+            addNotification("Gagal menyelesaikan pesanan", 'error', 4000);
         } finally {
             setProcessingId(null);
         }

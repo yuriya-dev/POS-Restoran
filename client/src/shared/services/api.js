@@ -1,8 +1,14 @@
 import axios from 'axios';
 
-// Ganti URL sesuai port server Express Anda (biasanya 5000)
+// ✅ LOGIKA DINAMIS:
+// 1. Jika di Vercel (Production), dia pakai VITE_API_URL dari Settings Vercel (https://...)
+// 2. Jika di Laptop (Local), dia pakai VITE_API_URL dari file .env (http://...)
+// 3. Jika tidak ada .env, fallback ke http://localhost:5001/api
+
+const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+
 const API = axios.create({
-  baseURL: 'https://pos-restoran.onrender.com/api', 
+  baseURL: baseURL, 
 });
 
 // ✅ TAMBAHAN PENTING: Request Interceptor

@@ -5,10 +5,12 @@ import SalesChart from '../components/reports/SalesChart';
 import Card from '../../shared/components/common/Card';
 import Button from '../../shared/components/common/Button';
 import { useAuth } from '../../shared/context/AuthContext';
+import { useNotification } from '../../shared/context/NotificationContext';
 import { api } from '../../shared/services/api';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { addNotification } = useNotification();
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
   
   // State Data
@@ -45,16 +47,30 @@ const Dashboard = () => {
             setTopSellingToday(null);
         }
 
+        // Alert jika banyak pending orders
+        const pendingOrders = ordersRes.data?.filter(o => o.status === 'pending') || [];
+        if (pendingOrders.length > 5) {
+          addNotification(
+            `⚠️ Ada ${pendingOrders.length} order menunggu!`,
+            'urgent',
+            0
+          );
+        }
+
       } catch (err) {
         console.error("Gagal mengambil data dashboard:", err);
         setError("Gagal memuat data transaksi.");
+        addNotification(
+          '❌ Gagal memuat data dashboard',
+          'error'
+        );
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [addNotification]);
 
   // 3. Perhitungan Statistik
   const dashboardStats = useMemo(() => {

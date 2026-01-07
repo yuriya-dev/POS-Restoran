@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Search, Utensils, Grid, ChevronLeft, RefreshCw, Plus, ChefHat, WifiOff } from 'lucide-react'; // ✅ Tambah WifiOff
 import { api } from '../../shared/services/api';
 import { useCart } from '../context/CartContext';
+import { useNotification } from '../../shared/context/NotificationContext';
 import { formatCurrency } from '../../shared/utils/helpers';
 import CartSidebar from '../components/CartSidebar';
 import toast from 'react-hot-toast';
@@ -11,6 +12,7 @@ const OrderPage = () => {
     const { tableId } = useParams(); 
     const navigate = useNavigate();
     const { addToCart, setSelectedTable } = useCart();
+    const { addNotification } = useNotification();
 
     const [menuItems, setMenuItems] = useState([]);
     const [categories, setCategories] = useState([]);

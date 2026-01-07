@@ -6,6 +6,7 @@ import './index.css';
 // Shared Contexts
 import { AuthProvider, useAuth } from './shared/context/AuthContext';
 import { SettingsProvider } from './shared/context/SettingsContext';
+import { NotificationProvider } from './shared/context/NotificationContext';
 
 // Admin App
 import AdminApp from './admin/App';
@@ -72,7 +73,9 @@ const App = () => {
     return (
         <AuthProvider>
             <SettingsProvider>
-                <AppRouter />
+                <NotificationProvider>
+                    <AppRouter />
+                </NotificationProvider>
             </SettingsProvider>
         </AuthProvider>
     );
