@@ -141,9 +141,6 @@ const CartSidebar = () => {
         try {
             const res = await api.createOrder(payload);
             
-            // ✅ INVALIDATE CACHE MEJA AGAR REFRESH OTOMATIS
-            localStorage.removeItem('cached_tables');
-            
             setOrderSuccessData({
                 ...payload,
                 serviceCharge: cartTotals.serviceCharge,
@@ -201,8 +198,8 @@ const CartSidebar = () => {
         setOrderSuccessData(null);
         setCashReceived('');
         setIsMobileOpen(false);
-        // ✅ TRIGGER REFRESH TABEL SAAT KEMBALI
-        navigate('/', { state: { refresh: true } });
+        // ✅ NAVIGATE BACK - TableMap AKAN AUTO-REFRESH DALAM 15 DETIK
+        navigate('/');
     };
 
     // --- MODE SUKSES (STRUK) ---

@@ -33,19 +33,21 @@ const TableMap = () => {
     const [isClearing, setIsClearing] = useState(false);
 
     useEffect(() => {
-        // ✅ CHECK JIKA ADA SIGNAL REFRESH DARI ORDER SELESAI
-        if (location.state?.refresh) {
-            setLoading(true);
+        // ✅ FETCH INITIAL + AUTO-REFRESH SETIAP 15 DETIK
+        fetchTables();
+        
+        // Auto-refresh table status setiap 15 detik
+        const refreshInterval = setInterval(() => {
             fetchTables();
-            // Clear state agar tidak refetch lagi
-            window.history.replaceState({}, document.title);
-        } else {
-            fetchTables();
-        }
+        }, 15000);
         
         const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-        return () => clearInterval(timer);
-    }, [location.state?.refresh]);
+        
+        return () => {
+            clearInterval(refreshInterval);
+            clearInterval(timer);
+        };
+    }, []);
 
     const fetchTables = async () => {
         try {

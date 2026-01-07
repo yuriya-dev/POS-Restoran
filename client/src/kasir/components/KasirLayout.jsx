@@ -3,11 +3,11 @@ import { useAuth } from '../../shared/context/AuthContext';
 import { api } from '../../shared/services/api'; // Import API untuk sync
 import { LogOut, LayoutDashboard, Utensils, ChefHat, History as HistoryIcon, Moon, Sun, Menu, X, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
+import toast, { Toaster } from 'react-hot-toast';
 import ConfirmModal from '../../shared/components/common/ConfirmModal';
 import NotificationCenter from '../../shared/components/NotificationCenter';
 import NotificationDropdown from '../../shared/components/common/NotificationDropdown';
 import { useNotification } from '../../shared/context/NotificationContext';
-import toast from 'react-hot-toast';
 
 const KasirLayout = () => {
     const { user, logout } = useAuth();
@@ -257,6 +257,18 @@ const KasirLayout = () => {
                 confirmText="Ya, Keluar"
                 cancelText="Batal"
                 confirmButtonClass="bg-red-600 hover:bg-red-700 text-white"
+            />
+            
+            {/* ✅ TOASTER PROVIDER - POSITIONED ABOVE NAVBAR (z-50) */}
+            <Toaster 
+                position="top-right"
+                toastOptions={{
+                    duration: 3000,
+                    style: {
+                        borderRadius: '10px',
+                    },
+                    className: 'z-50'
+                }}
             />
         </div>
     );
