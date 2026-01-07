@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../shared/services/api';
-import { useNotification } from '../../shared/context/NotificationContext';
 import { ChefHat, Clock, CheckCircle, RefreshCw, Utensils, Timer, WifiOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -8,7 +7,6 @@ const KitchenPage = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState(null);
-    const { addNotification } = useNotification();
 
     // 1. Fetch Orders dengan Logika Offline Fallback + Merge Local Data
     const fetchOrders = useCallback(async () => {
@@ -95,24 +93,19 @@ const KitchenPage = () => {
         setProcessingId(orderId);
         try {
             await api.completeOrder(orderId);
-            toast.success(`Order #${orderId} Selesai!`);
             
-            // 🔔 Tambahkan notifikasi
-            addNotification(
-                `✅ Pesanan #${orderId} sudah selesai dimasak!`,
-                'success',
-                5000,
-                {
-                    label: 'Lihat Detail',
-                    onClick: () => window.location.href = `/`
-                }
-            );
+            // ✅ Remove order dari list langsung (jangan wait fetchOrders)
+            setOrders(prevOrders => prevOrders.filter(o => o.orderId !== orderId));
             
-            fetchOrders(); // Refresh list segera
+            // 🔔 Toast notification saja (sudah ter-remove dari UI)
+            toast.success(`Order #${orderId} Selesai! ✅`, {
+                icon: <CheckCircle className="text-green-500" />,
+                duration: 3000
+            });
+            
         } catch (err) {
             console.error("Error updating order status:", err);
             toast.error("Gagal update status");
-            addNotification("Gagal menyelesaikan pesanan", 'error', 4000);
         } finally {
             setProcessingId(null);
         }
